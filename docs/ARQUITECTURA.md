@@ -117,6 +117,62 @@ token / token malformado → `401` (dos casos). Destinatario en supresión
 → `202` con `status=suppressed`, sin encolar. `template_id` inexistente
 y variable faltante → `400` en ambos casos.
 
+## Bounces/complaints y lista de supresión (ticket 006)
+
+**VERP**: cada envío real usa `envelope.from = bounces+{messageId}@mail.64bitstudio.com`
+(el header `From` visible sigue siendo el de siempre) — cualquier bounce
+o complaint que regrese trae el `message_id` codificado en su propio
+`Delivered-To`, sin depender de parsear heurísticamente el cuerpo.
+
+**Buzón dedicado, no un pipe transport de Postfix**: `bounces@mail.64bitstudio.com`
+es un buzón virtual normal (Dovecot). `recipient_delimiter = +` (ya
+configurado por `docker-mailserver` por defecto) hace que *cualquier*
+`bounces+ALGO@...` caiga en ese mismo buzón, con el "ALGO" preservado en
+`Delivered-To` — no hizo falta tocar `transport_maps`/`master.cf` para
+enrutar direcciones VERP una por una.
+
+**`MaildirWatcherService`** (`backend/src/bounces/`) vigila la carpeta
+`new/` de ese Maildir con `chokidar` — no es un buzón para revisar por
+IMAP, cada archivo se parsea y se borra (si el parseo falla, se deja el
+archivo para inspección manual en vez de perderlo). `parseDsnOrComplaint`
+distingue DSN (bounce) de ARF (complaint) por el `Content-Type` del
+mensaje (`multipart/report; report-type=delivery-status` vs.
+`report-type=feedback-report`).
+
+**Gotcha real de `mailparser` encontrado al probar contra un DSN real
+de este mismo Postfix (no un supuesto de la documentación)**: expone
+`message/feedback-report` (ARF) como `.attachments`, pero **no**
+`message/delivery-status` (DSN) — ese contenido queda concatenado
+dentro de `.text`, junto con la parte humana legible del reporte. El
+parser extrae `Action:`/`Status:`/`Diagnostic-Code:` de ahí para el
+caso DSN, y sigue usando `.attachments` para el caso ARF.
+
+**Bug real de infra encontrado y corregido en el camino**:
+`docker-mailserver` dejaba `mail.64bitstudio.com` tanto en
+`mydestination` (entrega local por usuario Unix) como en
+`virtual_mailbox_domains` (buzones virtuales de Dovecot) — Postfix
+priorizaba `mydestination`, así que *ningún* buzón virtual (ni
+`bounces@`, ni `noreply@`) llegaba nunca a Dovecot; rebotaban con
+"unknown user". Fix: `infra/mta/postfix-main.cf` (`mydestination =
+localhost`), montado explícitamente en `docker-compose.yml` (no vive en
+`docker-data/`, que está gitignorado) para que quede versionado.
+
+**Supresión siempre global** (`tenantId = null`), nunca por tenant — un
+hard bounce o complaint es una señal sobre la dirección en sí (HU-4: "no
+solo al que lo originó"). Un soft bounce (`Action: delayed`) NO suprime
+— solo se loguea, puede reintentarse en un envío futuro.
+
+**Verificado en vivo, de punta a punta, sin mocks**: envío real a una
+dirección inexistente en `mail.64bitstudio.com` → Postfix genera un DSN
+real → llega a `bounces@` → el watcher lo procesa → `SuppressionEntry`
+global creada, `Message.status = bounced` → un envío posterior a esa
+misma dirección queda bloqueado (`202 suppressed`, sin encolar). Soft
+bounce y complaint se probaron con fixtures reales/realistas (un DSN de
+verdad capturado en vivo para el caso soft; un ARF construido siguiendo
+RFC 5965 para complaint, ya que generar uno real requeriría estar
+registrado con un proveedor como Gmail Postmaster — trabajo de VM/producción,
+ticket 009, no de esta fase dev).
+
 ## Plan de calentamiento de IP (a ejecutar en la VM de producción)
 
 Rampa gradual de volumen diario recomendada para una IP/dominio sin

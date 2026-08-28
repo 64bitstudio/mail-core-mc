@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { MAIL_TRANSPORT } from './mail-transport.provider.js';
 import { isTransientSmtpError } from './smtp-error.util.js';
 import { TRANSACTIONAL_QUEUE } from './transactional-queue.service.js';
+import { buildVerpAddress } from './verp.util.js';
 
 interface SendJobData {
   messageId: string;
@@ -28,11 +29,19 @@ export class TransactionalProcessor extends WorkerHost {
     });
 
     try {
+      // envelope.from (VERP) va en el sobre SMTP real (Return-Path) —
+      // distinto del header "From" visible (`from`), que sigue siendo
+      // la dirección amigable de siempre. Ticket 006.
+      const verpDomain = process.env.VERP_DOMAIN ?? 'mail.64bitstudio.com';
       const info = await this.transport.sendMail({
         from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
         to: message.recipientEmail,
         subject: message.renderedSubject ?? '',
         html: message.renderedHtml ?? '',
+        envelope: {
+          from: buildVerpAddress(message.id, verpDomain),
+          to: message.recipientEmail,
+        },
       });
 
       await this.prisma.message.update({

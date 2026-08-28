@@ -30,6 +30,11 @@ services:
       - ./docker-data/dms/mail-state:/var/mail-state
       - ./docker-data/dms/mail-logs:/var/log/mail
       - ./docker-data/dms/config:/tmp/docker-mailserver
+      # Fix real (ticket 006, ver el propio archivo): sin esto, cualquier
+      # buzón virtual (bounces@, noreply@) nunca llega a Dovecot — se
+      # monta aparte porque docker-data/ está gitignorado (contiene
+      # secretos) y este fix sí debe quedar versionado.
+      - ./postfix-main.cf:/tmp/docker-mailserver/postfix-main.cf:ro
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     stop_grace_period: 1m

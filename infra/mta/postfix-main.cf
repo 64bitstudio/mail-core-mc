@@ -1,0 +1,14 @@
+# Override de main.cf que docker-mailserver aplica al arrancar (ticket 006).
+#
+# Bug real encontrado en vivo: docker-mailserver deja mail.64bitstudio.com
+# tanto en mydestination (entrega local por usuario Unix) como en
+# virtual_mailbox_domains (buzones virtuales de Dovecot) — Postfix
+# prioriza mydestination, así que CUALQUIER buzón virtual (bounces@,
+# noreply@) nunca llega a Dovecot: Postfix intenta entrega local Unix,
+# no encuentra el usuario, y rebota con "unknown user". Sin esto, la
+# cuenta bounces@mail.64bitstudio.com del bounce-processor (VERP) nunca
+# recibe nada.
+#
+# No usamos entrega local Unix para nada — todos los buzones son
+# virtuales (Dovecot) — así que mydestination se reduce a "localhost".
+mydestination = localhost

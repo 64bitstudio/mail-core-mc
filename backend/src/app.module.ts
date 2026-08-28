@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { HealthModule } from './health/health.module.js';
+import { BouncesModule } from './bounces/bounces.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { HealthModule } from './health/health.module.js';
     WebhooksModule,
     PrismaModule,
     HealthModule,
+    BouncesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

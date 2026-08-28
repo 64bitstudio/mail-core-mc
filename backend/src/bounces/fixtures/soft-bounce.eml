@@ -1,0 +1,38 @@
+Return-Path: <>
+Delivered-To: bounces+msg-soft-1@mail.64bitstudio.com
+Received: from mail.64bitstudio.com
+	by mail.64bitstudio.com with LMTP
+	for <bounces+msg-soft-1@mail.64bitstudio.com>; Thu, 27 Aug 2026 20:21:47 -0600
+Date: Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+From: Mail Delivery System <MAILER-DAEMON@mail.64bitstudio.com>
+Subject: Delayed Mail (still being retried)
+To: bounces+msg-soft-1@mail.64bitstudio.com
+Auto-Submitted: auto-replied
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status;
+	boundary="BOUNDARY"
+Message-Id: <20260828022147.SOFT@mail.64bitstudio.com>
+
+This is a MIME-encapsulated message.
+
+--BOUNDARY
+Content-Description: Notification
+Content-Type: text/plain; charset=us-ascii
+
+This message has been in the queue too long.
+
+--BOUNDARY
+Content-Description: Delivery report
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mail.64bitstudio.com
+X-Postfix-Queue-ID: SOFT1
+Arrival-Date: Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+
+Final-Recipient: rfc822; destino@ejemplo-externo.test
+Original-Recipient: rfc822;destino@ejemplo-externo.test
+Action: delayed
+Status: 4.4.7
+Diagnostic-Code: smtp; 450 4.4.7 Delivery time expired
+
+--BOUNDARY--

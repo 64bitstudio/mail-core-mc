@@ -1,0 +1,39 @@
+Delivered-To: bounces+msg-complaint-1@mail.64bitstudio.com
+Date: Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+From: Feedback Loop <fbl@proveedor-externo.test>
+Subject: FW: complaint about message from 64bitstudio.com
+To: bounces+msg-complaint-1@mail.64bitstudio.com
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=feedback-report;
+	boundary="BOUNDARY"
+Message-Id: <20260828022147.ARF@proveedor-externo.test>
+
+This is a MIME-encapsulated message.
+
+--BOUNDARY
+Content-Type: text/plain; charset=us-ascii
+
+This is an email abuse report.
+
+--BOUNDARY
+Content-Description: Feedback Report
+Content-Type: message/feedback-report
+
+Feedback-Type: abuse
+User-Agent: SomeGenericFBL/1.0
+Version: 1
+Original-Mail-From: <bounces+msg-complaint-1@mail.64bitstudio.com>
+Original-Rcpt-To: <destino@proveedor-externo.test>
+Arrival-Date: Thu, 27 Aug 2026 20:21:00 -0600
+
+--BOUNDARY
+Content-Description: Undelivered Message
+Content-Type: message/rfc822
+
+From: bounces+msg-complaint-1@mail.64bitstudio.com
+To: destino@proveedor-externo.test
+Subject: original message
+
+original content
+
+--BOUNDARY--

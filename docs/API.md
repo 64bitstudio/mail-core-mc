@@ -60,9 +60,10 @@ plantilla requiere (mismo error que `/v1/templates/:id/render`, ver
 arriba) — nunca se encola un envío a medias.
 
 ### `GET /v1/emails/:id`
-Consulta el estado de un mensaje ya encolado (`queued` → `sent`/`failed`
-según lo que reporte el worker del ticket 004; `suppressed` si nunca
-llegó a encolarse). `404` si el `id` no existe.
+Consulta el estado de un mensaje ya encolado: `queued` → `sent`/`failed`
+(worker, ticket 004) → `bounced` si llega un bounce permanente después
+(ticket 006, ver `lastError` para el diagnóstico); `suppressed` si nunca
+llegó a encolarse. `404` si el `id` no existe.
 
 ## Plantillas (ticket 003, HU-2)
 

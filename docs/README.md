@@ -107,6 +107,19 @@ El `identity_client` de `mail-core-mc` en `auth-core-mc` se siembra a
 mano (sin endpoint de alta todavía, ver su ticket 048) — pide las
 credenciales si no las tienes.
 
+## Bounces/complaints (ticket 006)
+
+Necesita el buzón `bounces@mail.64bitstudio.com` en la instancia de
+Postfix (`infra/mta/`, ver `docs/ARQUITECTURA.md`) y
+`BOUNCES_MAILDIR_PATH` apuntando a su carpeta `new/`. Si no existe la
+cuenta:
+```bash
+cd infra/mta && docker compose exec mailserver-transactional \
+  setup email add bounces@mail.64bitstudio.com <password>
+```
+Con la app corriendo, cualquier bounce/complaint real que llegue a ese
+buzón se procesa solo — no hace falta ningún paso manual adicional.
+
 ## Infraestructura de envío (Postfix/DKIM)
 
 Ver `docs/ARQUITECTURA.md` — corre en Docker (`infra/mta/`), separado de
