@@ -9,8 +9,8 @@ import { ScopesGuard } from '../auth/scopes.guard.js';
 import { RequireScopes } from '../auth/scopes.decorator.js';
 
 // Protegido con el mismo resource server OAuth2 del ticket 005
-// (ticket 010) — reutiliza mail:send tal cual, un solo scope para todo
-// el módulo, sin separar admin/render (decisión explícita del Product
+// (ticket 010) — reutiliza mail:send tal cual, un solo scope en los 4
+// endpoints, sin separar admin/render (decisión explícita del Product
 // Owner al cerrar este ticket, ver su sección "Hecho").
 @Controller('v1/templates')
 @UseGuards(JwtAuthGuard, ScopesGuard)
