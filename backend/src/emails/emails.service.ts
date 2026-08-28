@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TemplatesService } from '../templates/templates.service.js';
 import { TransactionalQueueService } from './transactional-queue.service.js';
 import { CreateEmailDto } from './dto/create-email.dto.js';
-import type { Tenant } from '../generated/prisma/client.js';
+import { TenantsService } from '../tenants/tenants.service.js';
 
 export interface SendEmailResult {
   messageId: string;
@@ -18,6 +18,7 @@ export class EmailsService {
     private readonly prisma: PrismaService,
     private readonly templates: TemplatesService,
     private readonly queue: TransactionalQueueService,
+    private readonly tenants: TenantsService,
   ) {}
 
   /**
@@ -27,7 +28,7 @@ export class EmailsService {
    * vuelve a tocar Handlebars.
    */
   async send(dto: CreateEmailDto): Promise<SendEmailResult> {
-    const tenant = await this.resolveTenant(dto.tenantId);
+    const tenant = await this.tenants.resolveTenant(dto.tenantId);
 
     const suppressed = await this.prisma.suppressionEntry.findFirst({
       where: { email: dto.to, OR: [{ tenantId: null }, { tenantId: tenant.id }] },
@@ -87,13 +88,5 @@ export class EmailsService {
       }
       throw err;
     }
-  }
-
-  private async resolveTenant(externalId: string = '__default__'): Promise<Tenant> {
-    return this.prisma.tenant.upsert({
-      where: { externalId },
-      update: {},
-      create: { externalId, name: externalId },
-    });
   }
 }

@@ -7,6 +7,7 @@ import { MAIL_TRANSPORT } from './mail-transport.provider.js';
 import { isTransientSmtpError } from './smtp-error.util.js';
 import { TRANSACTIONAL_QUEUE } from './transactional-queue.service.js';
 import { buildVerpAddress } from './verp.util.js';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service.js';
 
 interface SendJobData {
   messageId: string;
@@ -19,6 +20,7 @@ export class TransactionalProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(MAIL_TRANSPORT) private readonly transport: Transporter,
+    private readonly webhooks: WebhookQueueService,
   ) {
     super();
   }
@@ -53,6 +55,7 @@ export class TransactionalProcessor extends WorkerHost {
           attemptsMade: job.attemptsMade + 1,
         },
       });
+      await this.webhooks.enqueue(message.id, 'sent');
       return info.messageId;
     } catch (err) {
       const errorMessage = (err as Error).message;
@@ -67,6 +70,7 @@ export class TransactionalProcessor extends WorkerHost {
           where: { id: message.id },
           data: { status: 'failed', lastError: errorMessage, attemptsMade: job.attemptsMade + 1 },
         });
+        await this.webhooks.enqueue(message.id, 'failed');
         return null;
       }
 
@@ -95,5 +99,6 @@ export class TransactionalProcessor extends WorkerHost {
       where: { id: job.data.messageId },
       data: { status: 'failed', lastError: job.failedReason },
     });
+    await this.webhooks.enqueue(job.data.messageId, 'failed');
   }
 }
