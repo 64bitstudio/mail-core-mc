@@ -61,6 +61,27 @@ registro SPF).
   serio hasta la VM con IP dedicada + PTR + plan de calentamiento
   ejecutándose de verdad (ver "Plan de calentamiento de IP" abajo).
 
+## Cola transaccional y worker de envío (ticket 004)
+
+`EmailsModule` (`backend/src/emails/`) — BullMQ sobre Redis:
+
+- **`TransactionalQueueService`**: encola un `Message` ya renderizado
+  (`jobId = messageId`, dedup automática si algo lo encola dos veces).
+  Prioridad alta, `attempts`/backoff exponencial configurables por env
+  (`TRANSACTIONAL_MAX_ATTEMPTS`, `TRANSACTIONAL_BACKOFF_DELAY_MS`).
+- **`TransactionalProcessor`**: el worker. Entrega vía Nodemailer al
+  Postfix transaccional (ticket 001). Ante un rechazo SMTP:
+  - **4xx (transitorio)** o error de red: relanza el error para que
+    BullMQ reintente con backoff — `onFailed` marca `Message.status =
+    failed` solo cuando `attemptsMade` llega al máximo configurado.
+  - **5xx (permanente)**: marca `failed` de inmediato y NO relanza —
+    reintentar una dirección inexistente no tiene sentido.
+  - Éxito: `Message.status = sent`, con el `Message-Id` real de Postfix.
+- El worker **nunca vuelve a renderizar** — consume `rendered_subject`/
+  `rendered_html` ya guardados en el `Message` (ver `docs/BASE_DE_DATOS.md`).
+  Quien lo llena es el ticket 005 (API de envío), que todavía no existe —
+  mientras tanto se probó en vivo simulando ese paso directamente.
+
 ## Plan de calentamiento de IP (a ejecutar en la VM de producción)
 
 Rampa gradual de volumen diario recomendada para una IP/dominio sin

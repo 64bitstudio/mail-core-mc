@@ -64,7 +64,13 @@ model Message {
   status            String      @default("queued")
   recipientEmail    String      @map("recipient_email")
   renderedSubject   String?     @map("rendered_subject")
+  // El worker (ticket 004) solo envía correo ya renderizado — nunca
+  // vuelve a llamar a TemplatesService.render() ni a Handlebars, así que
+  // necesita el HTML final guardado, no solo el subject.
+  renderedHtml      String?     @map("rendered_html")
   providerMessageId String?     @map("provider_message_id")
+  attemptsMade      Int         @default(0) @map("attempts_made")
+  lastError         String?     @map("last_error")
   createdAt         DateTime    @default(now()) @map("created_at")
   sentAt            DateTime?   @map("sent_at")
   lastStatusAt      DateTime?   @map("last_status_at")
