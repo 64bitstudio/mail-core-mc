@@ -6,7 +6,9 @@ deje de depender de un proveedor externo de correo y use `mail-core-mc`
 para verificación de cuenta, reset de password y 2FA por correo. Nace de
 la sección "Objetivo de negocio" y HU-7 en
 `docs/definiciones/mail-core-mc-v1.md`. Depende de que los tickets 001 a
-007 estén cerrados y validados en producción.
+007 y el 009 (migración a VM dedicada) estén cerrados y validados en
+producción — el cutover no puede ejecutarse contra la instancia de
+desarrollo del ticket 001, que nunca validó entregabilidad real.
 
 ## Alcance
 **Incluye:**

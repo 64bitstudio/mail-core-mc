@@ -18,3 +18,7 @@ npm-debug.log*
 
 # OS
 .DS_Store
+
+# MTA (ticket 001): claves DKIM privadas, hashes de contraseñas de cuentas
+# SMTP y estado del contenedor — nunca al repo.
+infra/mta/docker-data/
