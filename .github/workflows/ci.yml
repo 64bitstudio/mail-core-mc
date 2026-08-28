@@ -30,6 +30,11 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      # src/generated/prisma es código generado, gitignorado a propósito
+      # — sin este paso el build falla (Cannot find module '.../client.js').
+      - name: Generar cliente de Prisma
+        run: npx prisma generate
+
       - name: Levantar Postgres/Redis de test
         run: docker compose up -d
 
