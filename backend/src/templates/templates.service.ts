@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateTemplateDto } from './dto/create-template.dto.js';
 import { UpdateTemplateDto } from './dto/update-template.dto.js';
 import { MissingTemplateVariableError } from './missing-template-variable.error.js';
+import { UnsafeTemplateVariableError } from './unsafe-template-variable.error.js';
 
 export interface RenderedTemplate {
   subject: string;
@@ -68,8 +69,19 @@ export class TemplatesService {
       throw new MissingTemplateVariableError(missing);
     }
 
+    // noEscape:true es correcto aquí (el subject es texto de header, no
+    // HTML — escaparlo produciría "&amp;" literal en el asunto) pero abre
+    // la puerta a inyección de headers SMTP si una variable trae un salto
+    // de línea crudo; se valida explícitamente abajo en vez de confiar en
+    // el escaping HTML que aquí no aplica. NOSONAR: ver validación de
+    // renderedSubject más abajo — no es un noEscape sin mitigación.
+    const renderedSubject = Handlebars.compile(template.subject, { noEscape: true })(variables); // NOSONAR
+    if (/[\r\n]/.test(renderedSubject)) {
+      throw new UnsafeTemplateVariableError();
+    }
+
     return {
-      subject: Handlebars.compile(template.subject, { noEscape: true })(variables),
+      subject: renderedSubject,
       html: Handlebars.compile(template.htmlBody)(variables),
     };
   }

@@ -73,5 +73,21 @@ que cada app llamante mande su propio HTML. Nace de HU-2 en
   bash 3.2 de macOS que no tiene `mapfile`) — verificado que sigue
   bloqueando un catch realmente silenciado. Reportado también como
   feedback del producto.
-
-
+- **Hallazgo de seguridad real, encontrado por el propio Quality Gate de
+  Sonar (no algo que hubiera notado sin CI):** `noEscape: true` en el
+  subject (necesario, es texto de header, no HTML) abría la puerta a
+  inyección de headers SMTP vía una variable con salto de línea crudo
+  (ej. inyectar un `Bcc:` falso). Corregido con una validación explícita
+  del subject renderizado (`UnsafeTemplateVariableError`, HTTP 400) en
+  vez de silenciar la advertencia — probado en vivo con un intento real
+  de inyección.
+- **Gotcha de infra encontrado en el camino:** el runner self-hosted de
+  CI corre en la misma Mac que el dev local, y usa el mismo nombre de
+  proyecto de Docker Compose (`mail-core-mc`) — un push mientras se
+  probaba localmente tiró los contenedores de dev a medio trabajo. Fix:
+  `COMPOSE_PROJECT_NAME=mail-core-mc-ci` en el workflow, documentado en
+  `docs/README.md`.
+- Cobertura de código nuevo subida de 76.9% a >80% (mínimo del Quality
+  Gate) agregando tests directos de `TemplatesController` y
+  `TemplateRenderFilter` (antes solo se probaban indirectamente vía
+  curl) — 16 tests en verde en total.

@@ -21,6 +21,14 @@ npm install
 docker compose up -d          # Postgres + Redis (puertos efímeros — ver abajo)
 ```
 
+**Ojo si el CI corre en la misma Mac que usas para dev** (self-hosted
+runner): el workflow fija `COMPOSE_PROJECT_NAME=mail-core-mc-ci` para no
+chocar con tus contenedores de dev — sin eso, un push mientras estás
+probando localmente tira tus contenedores a medio trabajo (`docker
+compose down` de CI usa el mismo nombre de proyecto). Si ves que tus
+contenedores desaparecieron solos, probablemente fue eso — solo vuelve a
+correr `docker compose up -d` y reaplica la migración.
+
 Después de levantar Postgres/Redis, obtén sus puertos reales (Docker los
 asigna al azar para no chocar con otros Postgres/Redis que ya corran en
 esta máquina — ver el comentario en `backend/compose.yaml`):

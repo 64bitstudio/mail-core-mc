@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { TemplatesService } from './templates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MissingTemplateVariableError } from './missing-template-variable.error.js';
+import { UnsafeTemplateVariableError } from './unsafe-template-variable.error.js';
 
 describe('TemplatesService', () => {
   let service: TemplatesService;
@@ -123,6 +124,19 @@ describe('TemplatesService', () => {
 
       expect(result.html).not.toContain('<script>');
       expect(result.html).toContain('&lt;script&gt;');
+    });
+
+    it('rechaza una variable que inyecta un salto de línea en el subject (inyección de headers SMTP)', async () => {
+      prismaMock.template.findUnique.mockResolvedValue({
+        id: 't1',
+        subject: 'Hola {{nombre}}',
+        htmlBody: '<p>{{nombre}}</p>',
+        version: 1,
+      });
+
+      const call = service.render('t1', { nombre: 'Marco\nBcc: atacante@evil.test' });
+
+      await expect(call).rejects.toBeInstanceOf(UnsafeTemplateVariableError);
     });
   });
 });
