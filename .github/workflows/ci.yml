@@ -1,0 +1,86 @@
+# Build + tests + análisis de calidad (SonarQube) + notificación a
+# Telegram en cada push, corriendo en el mismo self-hosted runner que
+# auth-core-mc (ver ese repo, ticket 010, para el porqué de self-hosted:
+# SonarQube corre localmente en esta máquina, un runner en la nube no
+# alcanzaría ese localhost).
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-test-analyze:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # SonarQube necesita el historial completo para el análisis de
+          # "new code"/blame (mismo motivo que en auth-core-mc).
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Levantar Postgres/Redis de test
+        run: docker compose up -d
+
+      - name: Resolver puertos efímeros de Postgres/Redis
+        id: ports
+        run: |
+          echo "pg_port=$(docker compose port postgres 5432 | cut -d: -f2)" >> "$GITHUB_OUTPUT"
+          echo "redis_port=$(docker compose port redis 6379 | cut -d: -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Migrar base de datos de test
+        env:
+          DATABASE_URL: "postgresql://mail_core_mc:mail_core_mc_dev@localhost:${{ steps.ports.outputs.pg_port }}/mail_core_mc?schema=public"
+        run: npx prisma migrate deploy
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests con cobertura
+        env:
+          DATABASE_URL: "postgresql://mail_core_mc:mail_core_mc_dev@localhost:${{ steps.ports.outputs.pg_port }}/mail_core_mc?schema=public"
+          REDIS_URL: "redis://localhost:${{ steps.ports.outputs.redis_port }}"
+        run: npm run test:cov
+
+      - name: Bajar Postgres/Redis de test
+        if: always()
+        run: docker compose down
+
+      - name: Análisis SonarQube
+        uses: SonarSource/sonarqube-scan-action@v6
+        with:
+          projectBaseDir: backend
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # Falla el job si el Quality Gate de SonarQube queda en rojo (mismo
+      # patrón que auth-core-mc — el scan action solo envía el análisis,
+      # no espera el resultado del gate por sí solo).
+      - name: Quality Gate de SonarQube
+        uses: sonarsource/sonarqube-quality-gate-action@v1.2.1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Notificar a Telegram
+        if: always()
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "${{ job.status }}" = "success" ]; then
+            ~/dev-infra/scripts/notify.sh "✅ [mail-core-mc] CI OK" "Build + tests + Quality Gate OK en ${{ github.ref_name }} (${{ github.sha }}). $RUN_URL"
+          else
+            ~/dev-infra/scripts/notify.sh "🔴 [mail-core-mc] CI FALLÓ" "Falló en ${{ github.ref_name }} (${{ github.sha }}). $RUN_URL"
+          fi
