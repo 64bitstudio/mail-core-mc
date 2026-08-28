@@ -1,0 +1,29 @@
+# Node
+node_modules
+dist
+coverage
+*.tsbuildinfo
+npm-debug.log*
+
+# Prisma
+/src/generated/prisma
+
+# Env / secrets — .env.example sí se versiona
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea
+*.iml
+.vscode
+
+# Skills de agentes de IA instalados por `prisma init` (útiles localmente,
+# no son parte del proyecto versionado — mismo criterio que .vscode/).
+.claude/skills
+.windsurf/skills
+.agents/skills
+skills-lock.json
+
+# OS
+.DS_Store

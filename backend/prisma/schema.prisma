@@ -1,0 +1,92 @@
+// Esquema base de mail-core-mc (ticket 002, Fase 1).
+//
+// Solo los 4 modelos que HU-1 a HU-6 necesitan (envío transaccional,
+// plantillas, auth, supresión). Contact/List/Segment/Campaign llegan en la
+// Fase 3 (CRM de marketing) — ver docs/definiciones/mail-core-mc-v1.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Identidad de remitente por tenant (Fase 2, HU-8). Ya se modela desde
+// ahora porque Message.tenantId la referencia, pero from_display_name /
+// reply_to / branding se usan hasta que HU-8 se implemente — hasta
+// entonces todo tenant usa el remitente por defecto del ecosistema.
+model Tenant {
+  id               String   @id @default(uuid())
+  name             String
+  fromDisplayName  String?  @map("from_display_name")
+  replyTo          String?  @map("reply_to")
+  brandColor       String?  @map("brand_color")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  templates Template[]
+  messages  Message[]
+
+  @@map("tenants")
+}
+
+model Template {
+  id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id") // null = plantilla compartida/del sistema
+  name      String
+  subject   String
+  htmlBody  String   @map("html_body")
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id])
+  messages Message[]
+
+  @@map("templates")
+}
+
+enum MessageType {
+  transactional
+  marketing
+}
+
+// Sin enum de status: HU-3/HU-4 van agregando estados sobre la marcha
+// (queued, sent, delivered, bounced, failed, suppressed) y un enum en el
+// esquema obligaría a una migración por cada estado nuevo. String simple
+// + validación en la capa de aplicación (ticket 005).
+model Message {
+  id                String      @id @default(uuid())
+  tenantId          String      @map("tenant_id")
+  templateId        String?     @map("template_id")
+  type              MessageType @default(transactional)
+  status            String      @default("queued")
+  recipientEmail    String      @map("recipient_email")
+  renderedSubject   String?     @map("rendered_subject")
+  providerMessageId String?     @map("provider_message_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  sentAt            DateTime?   @map("sent_at")
+  lastStatusAt      DateTime?   @map("last_status_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  template Template? @relation(fields: [templateId], references: [id])
+
+  @@index([recipientEmail])
+  @@index([status])
+  @@map("messages")
+}
+
+// Lista de supresión — HU-4. tenantId nulo = supresión global (bounce
+// duro o complaint aplica a cualquier tenant, no solo al que lo originó).
+model SuppressionEntry {
+  id        String   @id @default(uuid())
+  email     String
+  reason    String // bounce | complaint | unsubscribe
+  tenantId  String?  @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, tenantId])
+  @@index([email])
+  @@map("suppression_entries")
+}

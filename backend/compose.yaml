@@ -1,0 +1,22 @@
+# Nombre explícito de proyecto — sin esto, Docker Compose usa el nombre
+# del directorio contenedor ("backend"), que choca con cualquier otro
+# proyecto en esta máquina que también tenga su backend en una carpeta
+# "backend" (gotcha ya documentado en auth-core-mc/backend/compose.yaml).
+name: mail-core-mc
+
+services:
+  postgres:
+    image: 'postgres:16-alpine'
+    environment:
+      - 'POSTGRES_DB=mail_core_mc'
+      - 'POSTGRES_USER=mail_core_mc'
+      - 'POSTGRES_PASSWORD=mail_core_mc_dev'
+    # Puerto efímero (no 5432 fijo): esta Mac ya tiene un Postgres propio
+    # corriendo en :5432 (ver ~/dev-infra/docker-compose.yml) — mismo
+    # motivo que en auth-core-mc/backend/compose.yaml.
+    ports:
+      - '5432'
+  redis:
+    image: 'redis:7-alpine'
+    ports:
+      - '6379'
