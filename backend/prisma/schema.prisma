@@ -34,6 +34,7 @@ model Tenant {
 
   templates Template[]
   messages  Message[]
+  webhookSubscription WebhookSubscription?
 
   @@map("tenants")
 }
@@ -102,4 +103,22 @@ model SuppressionEntry {
   @@unique([email, tenantId])
   @@index([email])
   @@map("suppression_entries")
+}
+
+// Webhook de estado de entrega — HU-5, ticket 007. Un webhook por
+// tenant por ahora (v1, simplicidad — múltiples webhooks/tenant es
+// extensión futura si hace falta). El secret se guarda en texto plano
+// a propósito: es una llave simétrica de firma (HMAC), no una
+// contraseña — hay que poder recuperarla para firmar cada request, no
+// solo compararla (distinto de client_secret_hash en auth-core-mc).
+model WebhookSubscription {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique @map("tenant_id")
+  url       String
+  secret    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("webhook_subscriptions")
 }

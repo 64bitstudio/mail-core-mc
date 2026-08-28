@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EmailsService } from './emails.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { TemplatesService } from '../templates/templates.service.js';
-import { TransactionalQueueService } from './transactional-queue.service.js';
 import { MissingTemplateVariableError } from '../templates/missing-template-variable.error.js';
+import { TenantsService } from '../tenants/tenants.service.js';
 
 describe('EmailsService', () => {
   let service: EmailsService;
@@ -21,7 +19,8 @@ describe('EmailsService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.tenant.upsert.mockResolvedValue(tenant);
-    service = new EmailsService(prismaMock as never, templatesMock as never, queueMock as never);
+    const tenants = new TenantsService(prismaMock as never);
+    service = new EmailsService(prismaMock as never, templatesMock as never, queueMock as never, tenants);
   });
 
   describe('send', () => {

@@ -102,6 +102,72 @@ el ticket 005, que reutiliza el mismo `TemplatesService.render()`).
 { "statusCode": 400, "error": "Bad Request", "message": "Faltan variables requeridas por la plantilla: link", "missingVariables": ["link"] }
 ```
 
+## Webhooks de estado de entrega (ticket 007)
+
+Requiere `Authorization: Bearer <token>` con scope `mail:send` (se
+reutiliza el mismo scope por ahora — no hay un `mail:admin` separado
+todavía; si en el futuro se necesita separar quién puede *enviar*
+correos de quién puede *administrar* la configuración del tenant, valdría
+la pena revisarlo, pero no bloquea este ticket).
+
+### `POST /v1/webhooks`
+Registra (o rota, si ya existía uno) la URL de callback del tenant que
+llama. Un tenant tiene como máximo un webhook activo — volver a
+registrar sobre el mismo tenant **reemplaza** la URL y **rota el
+secret** (el anterior deja de ser válido de inmediato).
+
+**Body:**
+```json
+{ "url": "https://tu-app.com/webhooks/mail-core-mc", "tenantId": "acme" }
+```
+`tenantId` es opcional (usa el tenant compartido por defecto si se
+omite, igual que en `POST /v1/emails`).
+
+**Respuesta `201`:**
+```json
+{ "url": "https://tu-app.com/webhooks/mail-core-mc", "secret": "…64 hex chars…" }
+```
+El `secret` **solo se muestra en esta respuesta** — guárdalo, no hay
+forma de recuperarlo después (solo de rotarlo volviendo a registrar).
+
+### Payload que recibe tu endpoint
+Por cada cambio de estado relevante de un mensaje (`sent`, `failed`,
+`bounced`, `complained`) se hace un `POST` a la URL registrada:
+
+```json
+{
+  "messageId": "968ba768-2107-42ac-9615-589df64c9674",
+  "event": "bounced",
+  "recipientEmail": "buzon-inexistente@ejemplo.com",
+  "status": "bounced",
+  "lastError": "smtp; 550 5.1.1 <buzon-inexistente@ejemplo.com>",
+  "occurredAt": "2026-08-28T02:46:09.343Z"
+}
+```
+
+Firmado con `X-Signature: sha256=<hex>` — HMAC-SHA256 del cuerpo exacto
+(JSON tal cual se envía) usando el `secret` devuelto al registrar.
+Verifícalo así (ejemplo Node):
+```js
+const crypto = require('crypto');
+const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+// compara expected con el header X-Signature (constant-time)
+```
+
+**Reintentos (AC2):** un 5xx o error de red/timeout del receptor se
+reintenta con backoff exponencial (`WEBHOOK_MAX_ATTEMPTS`/
+`WEBHOOK_BACKOFF_DELAY_MS`, mismo mecanismo que la cola transaccional).
+Un 4xx se trata como error permanente del receptor — no se reintenta.
+Si un tenant no tiene webhook registrado, el evento simplemente no se
+dispara (no es un error).
+
+Verificado en vivo end-to-end (ticket 007): registro real contra un
+receptor HTTP local, envío real de un correo (evento `sent` con firma
+válida), y un bounce real generado por Postfix (`550 5.1.1`, DSN
+parseado por `MaildirWatcherService`/`BounceProcessorService`, evento
+`bounced` con firma válida) — ambas firmas verificadas por HMAC contra
+el secret devuelto por el registro.
+
 ## Salud (ticket 002)
 
 ### `GET /health`

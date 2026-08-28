@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service.js';
 import type { ParsedBounceEmail } from './dsn-parser.util.js';
 
 @Injectable()
 export class BounceProcessorService {
   private readonly logger = new Logger(BounceProcessorService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webhooks: WebhookQueueService,
+  ) {}
 
   async process(parsed: NonNullable<ParsedBounceEmail>): Promise<void> {
     const message = await this.prisma.message.findUnique({ where: { id: parsed.messageId } });
@@ -17,6 +21,8 @@ export class BounceProcessorService {
 
     if (parsed.type === 'complaint') {
       await this.suppress(message.recipientEmail, 'complaint');
+      await this.prisma.message.update({ where: { id: message.id }, data: { status: 'complained' } });
+      await this.webhooks.enqueue(message.id, 'complained');
       this.logger.warn(`Complaint recibido para el mensaje ${message.id}`);
       return;
     }
@@ -34,6 +40,7 @@ export class BounceProcessorService {
       where: { id: message.id },
       data: { status: 'bounced', lastError: parsed.diagnosticCode ?? parsed.statusCode },
     });
+    await this.webhooks.enqueue(message.id, 'bounced');
     this.logger.warn(`Bounce permanente para el mensaje ${message.id}: ${parsed.statusCode}`);
   }
 

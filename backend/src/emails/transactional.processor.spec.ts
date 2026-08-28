@@ -12,6 +12,7 @@ describe('TransactionalProcessor', () => {
     },
   } as unknown as PrismaService;
   const transportMock = { sendMail: vi.fn() };
+  const webhooksMock = { enqueue: vi.fn() };
 
   const baseMessage = {
     id: 'msg-1',
@@ -22,7 +23,7 @@ describe('TransactionalProcessor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    processor = new TransactionalProcessor(prismaMock, transportMock as never);
+    processor = new TransactionalProcessor(prismaMock, transportMock as never, webhooksMock as never);
     (prismaMock.message.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue(baseMessage);
   });
 

@@ -44,9 +44,11 @@ compartida/del sistema.
 Un registro por correo individual enviado (transaccional o, en Fase 3,
 de campaña). `status` es un string libre (no enum) a propósito: HU-3/HU-4
 van agregando estados (`queued`, `sent`, `delivered`, `bounced`,
-`failed`, `suppressed`) y un enum hubiera forzado una migración por cada
-estado nuevo — la validación de valores válidos vive en la capa de
-aplicación (ticket 005), no en la base de datos.
+`failed`, `suppressed`, `complained` — este último agregado en el
+ticket 007, antes un complaint solo generaba una entrada de supresión
+sin tocar el `status` del mensaje) y un enum hubiera forzado una
+migración por cada estado nuevo — la validación de valores válidos vive
+en la capa de aplicación (ticket 005), no en la base de datos.
 
 | Campo | Para qué es |
 |---|---|
@@ -78,3 +80,17 @@ bounce o complaint aplica a cualquier tenant, no solo al que lo originó).
 Único por `(email, tenant_id)` — el mismo correo puede estar suprimido
 globalmente y, por separado, también aparecer con una entrada específica
 de un tenant si aplica.
+
+### `webhook_subscriptions` (ticket 007)
+Un webhook activo por tenant — `tenant_id` es `@unique`, así que
+`POST /v1/webhooks` es siempre un upsert: registrar de nuevo sobre el
+mismo tenant reemplaza `url` y rota `secret`, nunca crea una segunda
+fila para el mismo tenant.
+
+| Campo | Para qué es |
+|---|---|
+| `id` | UUID, PK |
+| `tenant_id` | FK a `tenants`, único (un webhook por tenant) |
+| `url` | URL de callback a la que se hace `POST` en cada evento |
+| `secret` | 32 bytes aleatorios (hex) — HMAC-SHA256 del payload, header `X-Signature`. Se genera uno nuevo en cada registro, incluso al rotar sobre el mismo tenant |
+| `created_at` | — |

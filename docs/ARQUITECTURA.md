@@ -173,6 +173,59 @@ RFC 5965 para complaint, ya que generar uno real requeriría estar
 registrado con un proveedor como Gmail Postmaster — trabajo de VM/producción,
 ticket 009, no de esta fase dev).
 
+## Webhooks firmados de estado de entrega (ticket 007)
+
+`WebhooksModule` (`backend/src/webhooks/`) — una segunda cola BullMQ
+(`WEBHOOK_QUEUE = 'webhook-dispatch'`), mismo patrón exacto de
+`TransactionalQueueService`/`TransactionalProcessor` (ticket 004):
+`WebhookQueueService.enqueue(messageId, event)` encola, `WebhookProcessor`
+entrega.
+
+**Quién dispara un evento de webhook** — cada punto del sistema que ya
+cambia `Message.status` a un estado terminal, después de escribir en la
+base de datos, encola el evento correspondiente:
+- `TransactionalProcessor` (ticket 004): `sent` en éxito, `failed` en
+  rechazo permanente inmediato o al agotar reintentos.
+- `BounceProcessorService` (ticket 006): `bounced` en un DSN permanente,
+  `complained` en un ARF. Antes del ticket 007 un complaint solo creaba
+  la `SuppressionEntry` sin tocar `Message.status` — ahora también
+  marca `status = complained`, para que el llamante pueda consultarlo
+  vía `GET /v1/emails/:id` igual que cualquier otro estado terminal.
+
+**`TenantsService`** (`backend/src/tenants/`) — extraído de
+`EmailsService` en este ticket: el find-or-create de `Tenant` por
+`external_id` (ticket 005) lo necesitaban tanto `EmailsService` como el
+nuevo `WebhooksService`, así que se movió a un módulo compartido en vez
+de duplicar la lógica.
+
+**Firma**: `X-Signature: sha256=<hmac-sha256 hex>` del cuerpo JSON
+exacto, con un `secret` de 32 bytes aleatorios generado por tenant
+(`webhook-signature.util.ts`). Se regenera en cada `POST /v1/webhooks`
+— registrar de nuevo rota el secret, no lo reutiliza (evita que un
+secret viejo filtrado siga siendo válido indefinidamente).
+
+**Reintentos**: mismo criterio transitorio/permanente que ticket 004
+pero aplicado a la respuesta del *receptor* del webhook
+(`webhook-error.util.ts`): 5xx o error de red/timeout → transitorio,
+relanza para que BullMQ reintente con backoff exponencial
+(`WEBHOOK_MAX_ATTEMPTS`/`WEBHOOK_BACKOFF_DELAY_MS`); 4xx → permanente,
+no tiene caso reintentar (el receptor está rechazando el payload a
+propósito, ej. firma inválida de su lado). `fetch` con `AbortController`
+de 10s — un receptor colgado no bloquea el worker indefinidamente.
+
+Si el tenant del mensaje no tiene webhook registrado, `WebhookProcessor`
+no hace nada (no es un error, la mayoría de los tenants no tendrán uno
+en Fase 1).
+
+**Verificado en vivo, de punta a punta, sin mocks**: `POST /v1/webhooks`
+contra un receptor HTTP local real → envío real de un correo → evento
+`sent` recibido con firma HMAC verificada contra el `secret` devuelto
+por el registro → envío real a un buzón inexistente → Postfix genera un
+DSN real (550 5.1.1) → `MaildirWatcherService`/`BounceProcessorService`
+lo procesa → evento `bounced` recibido, también con firma verificada,
+`Message.status` en base de datos coincidiendo exactamente con el
+payload del webhook en ambos casos.
+
 ## Plan de calentamiento de IP (a ejecutar en la VM de producción)
 
 Rampa gradual de volumen diario recomendada para una IP/dominio sin
