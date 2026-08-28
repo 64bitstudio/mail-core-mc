@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "mail-core-mc",
+    "description": "Colección de requests para mail-core-mc. Requiere un token OAuth2 client_credentials de auth-core-mc para los endpoints protegidos (ver docs/API.md). Corre la request \"Auth > Obtener token (auth-core-mc)\" primero — guarda el access_token en la variable de colección {{token}} automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "authCoreIssuerUri", "value": "http://localhost:8080" },
+    { "key": "authCoreClientId", "value": "mail-core-mc" },
+    { "key": "authCoreClientSecret", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "templateId", "value": "" },
+    { "key": "messageId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Obtener token (auth-core-mc)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{authCoreClientId}}" },
+                { "key": "password", "value": "{{authCoreClientSecret}}" }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "scope", "value": "mail:send" }
+              ]
+            },
+            "url": { "raw": "{{authCoreIssuerUri}}/oauth2/token", "host": ["{{authCoreIssuerUri}}"], "path": ["oauth2", "token"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Salud",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Plantillas",
+      "item": [
+        {
+          "name": "POST /v1/templates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('templateId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bienvenida\",\n  \"subject\": \"Hola {{nombre}}\",\n  \"htmlBody\": \"<p>Hola {{nombre}}</p>\",\n  \"tenantId\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/v1/templates", "host": ["{{baseUrl}}"], "path": ["v1", "templates"] }
+          }
+        },
+        {
+          "name": "GET /v1/templates/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/v1/templates/{{templateId}}", "host": ["{{baseUrl}}"], "path": ["v1", "templates", "{{templateId}}"] }
+          }
+        },
+        {
+          "name": "PATCH /v1/templates/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Hola de nuevo {{nombre}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/v1/templates/{{templateId}}", "host": ["{{baseUrl}}"], "path": ["v1", "templates", "{{templateId}}"] }
+          }
+        },
+        {
+          "name": "POST /v1/templates/:id/render",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variables\": { \"nombre\": \"Marco\" }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/v1/templates/{{templateId}}/render", "host": ["{{baseUrl}}"], "path": ["v1", "templates", "{{templateId}}", "render"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Envío transaccional",
+      "item": [
+        {
+          "name": "POST /v1/emails",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  pm.collectionVariables.set('messageId', pm.response.json().messageId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templateId\": \"{{templateId}}\",\n  \"to\": \"destinatario@ejemplo.com\",\n  \"tenantId\": \"acme\",\n  \"variables\": { \"nombre\": \"Marco\" }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/v1/emails", "host": ["{{baseUrl}}"], "path": ["v1", "emails"] }
+          }
+        },
+        {
+          "name": "GET /v1/emails/:id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/v1/emails/{{messageId}}", "host": ["{{baseUrl}}"], "path": ["v1", "emails", "{{messageId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "POST /v1/webhooks",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://tu-app.com/webhooks/mail-core-mc\",\n  \"tenantId\": \"acme\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/v1/webhooks", "host": ["{{baseUrl}}"], "path": ["v1", "webhooks"] }
+          }
+        }
+      ]
+    }
+  ]
+}
