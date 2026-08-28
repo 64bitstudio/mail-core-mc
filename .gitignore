@@ -22,3 +22,7 @@ npm-debug.log*
 # MTA (ticket 001): claves DKIM privadas, hashes de contraseñas de cuentas
 # SMTP y estado del contenedor — nunca al repo.
 infra/mta/docker-data/
+
+# Estado local de la sesión de Claude Code (locks de tareas programadas),
+# no es parte del proyecto.
+.claude/scheduled_tasks.lock
