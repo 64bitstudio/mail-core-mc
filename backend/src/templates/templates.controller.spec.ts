@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TemplatesController } from './templates.controller.js';
 import { TemplatesService } from './templates.service.js';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { ScopesGuard } from '../auth/scopes.guard.js';
 
 describe('TemplatesController', () => {
   const templatesMock = {
@@ -15,7 +17,12 @@ describe('TemplatesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TemplatesController],
       providers: [{ provide: TemplatesService, useValue: templatesMock }],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ScopesGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     return module.get(TemplatesController);
   };
 

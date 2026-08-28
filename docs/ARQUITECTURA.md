@@ -226,6 +226,28 @@ lo procesa → evento `bounced` recibido, también con firma verificada,
 `Message.status` en base de datos coincidiendo exactamente con el
 payload del webhook en ambos casos.
 
+## Protección de `/v1/templates/**` (ticket 010)
+
+Quedó documentado como pendiente al cerrar el ticket 005 (no se agregó
+"de paso" en ese ticket para no mezclar alcances). Mismo mecanismo tal
+cual (`JwtAuthGuard` + `ScopesGuard`, `@RequireScopes('mail:send')`) —
+reusa el único scope existente, no se creó un `mail:admin` separado
+(decisión explícita del Product Owner: un cliente que puede enviar
+correo también puede administrar plantillas, por ahora).
+
+`TemplatesModule` repite el mismo gotcha de `PassportModule.register(...)`
+documentado en `EmailsModule`/`WebhooksModule` — cada módulo que usa
+`@UseGuards(JwtAuthGuard)` en su controller necesita su propia
+visibilidad de `AuthModuleOptions`.
+
+**Verificado en vivo contra `auth-core-mc` real** (mismo patrón que
+ticket 005): sin token → `401` en los 4 endpoints. Token válido pero de
+un client_id sin el scope `mail:send` (client de prueba
+`mail-core-mc-noscope-test`, sembrado a mano en `auth-core-mc` solo para
+este caso) → `403`. Token con el scope correcto → comportamiento idéntico
+al de antes del ticket, sin regresión funcional (`create`/`render`
+probados de punta a punta con datos reales).
+
 ## Plan de calentamiento de IP (a ejecutar en la VM de producción)
 
 Rampa gradual de volumen diario recomendada para una IP/dominio sin

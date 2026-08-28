@@ -24,9 +24,11 @@ Authorization: Bearer <access_token>
 - Sin token, o token inválido/expirado/de un `client_id` no reconocido por el JWK Set → `401`.
 - Token válido pero sin el scope que el endpoint requiere → `403`.
 
-Las plantillas (`/v1/templates/**`, ticket 003) **todavía no están
-protegidas** — quedan fuera de alcance del ticket 005, pendientes de
-envolverse con el mismo mecanismo en un ticket futuro.
+Las plantillas (`/v1/templates/**`, ticket 003) también requieren
+`Authorization: Bearer <token>` con scope `mail:send` desde el ticket
+010 — reusa el mismo scope que el envío, no hay un `mail:admin`
+separado para administrar plantillas (decisión explícita del Product
+Owner al cerrar ese ticket).
 
 ## Envío transaccional (ticket 005, HU-1/HU-6)
 
@@ -65,7 +67,10 @@ Consulta el estado de un mensaje ya encolado: `queued` → `sent`/`failed`
 (ticket 006, ver `lastError` para el diagnóstico); `suppressed` si nunca
 llegó a encolarse. `404` si el `id` no existe.
 
-## Plantillas (ticket 003, HU-2)
+## Plantillas (ticket 003, HU-2; protegido desde ticket 010)
+
+Los 4 endpoints requieren `Authorization: Bearer <token>` con scope
+`mail:send` (ver "Autenticación" arriba).
 
 ### `POST /v1/templates`
 Crea una plantilla. `htmlBody`/`subject` pueden usar variables planas

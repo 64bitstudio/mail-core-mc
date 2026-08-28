@@ -85,7 +85,10 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"bienvenida\",\n  \"subject\": \"Hola {{nombre}}\",\n  \"htmlBody\": \"<p>Hola {{nombre}}</p>\",\n  \"tenantId\": null\n}"
@@ -97,6 +100,7 @@
           "name": "GET /v1/templates/:id",
           "request": {
             "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/v1/templates/{{templateId}}", "host": ["{{baseUrl}}"], "path": ["v1", "templates", "{{templateId}}"] }
           }
         },
@@ -104,7 +108,10 @@
           "name": "PATCH /v1/templates/:id",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"subject\": \"Hola de nuevo {{nombre}}\"\n}"
@@ -116,7 +123,10 @@
           "name": "POST /v1/templates/:id/render",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"variables\": { \"nombre\": \"Marco\" }\n}"
