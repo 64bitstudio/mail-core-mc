@@ -52,7 +52,7 @@ HU-6 en `docs/definiciones/mail-core-mc-v1.md`.
   lo había asumido sin verificar. Resuelto como su propio ticket en ese
   repo (`auth-core-mc` #048, con VoBo del Product Owner), no "de paso"
   dentro de este ticket — ver ese repo para el detalle completo.
-- **43 tests en verde** (unitarios: `ScopesGuard`, `JwtAuthGuard`,
+- **45 tests en verde** (unitarios: `ScopesGuard`, `JwtAuthGuard`,
   `JwtStrategy.validate()`, `EmailsService` con los 5 caminos de AC,
   `EmailsController`) + **verificado en vivo, los 5 criterios de
   aceptación, contra `auth-core-mc` real corriendo, no mocks**:
@@ -74,6 +74,10 @@ HU-6 en `docs/definiciones/mail-core-mc-v1.md`.
   en `AuthModule` — documentado en `docs/ARQUITECTURA.md` y en el código.
 - `docs/API.md`, `docs/BASE_DE_DATOS.md`, `docs/README.md`,
   `docs/ARQUITECTURA.md` y `.env.example` actualizados.
+- **Quality Gate de Sonar encontró un code smell real** en
+  `resolveTenant` (`externalId ?? '__default__'` reasignado dentro del
+  cuerpo) — corregido a un parámetro con valor por defecto
+  (`externalId: string = '__default__'`), más simple y sin reasignación.
 - **Fuera de alcance, anotado explícitamente para un ticket futuro**:
   `/v1/templates/**` (ticket 003) sigue sin protección — no se le agregó
   de paso, se documentó como pendiente.

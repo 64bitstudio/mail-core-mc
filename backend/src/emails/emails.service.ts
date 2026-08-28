@@ -89,12 +89,11 @@ export class EmailsService {
     }
   }
 
-  private async resolveTenant(externalId?: string): Promise<Tenant> {
-    const key = externalId ?? '__default__';
+  private async resolveTenant(externalId: string = '__default__'): Promise<Tenant> {
     return this.prisma.tenant.upsert({
-      where: { externalId: key },
+      where: { externalId },
       update: {},
-      create: { externalId: key, name: key },
+      create: { externalId, name: externalId },
     });
   }
 }
