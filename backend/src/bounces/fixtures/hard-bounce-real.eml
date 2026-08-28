@@ -1,0 +1,93 @@
+Return-Path: <>
+Delivered-To: bounces+prueba-dsn-real@mail.64bitstudio.com
+Received: from mail.64bitstudio.com
+	by mail.64bitstudio.com with LMTP
+	id sBx7CLvwkGrmAwAAZU03Dg
+	(envelope-from <>)
+	for <bounces+prueba-dsn-real@mail.64bitstudio.com>; Thu, 27 Aug 2026 20:21:47 -0600
+Received: by mail.64bitstudio.com (Postfix)
+	id 224D6239; Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+Date: Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+From: Mail Delivery System <MAILER-DAEMON@mail.64bitstudio.com>
+Subject: Undelivered Mail Returned to Sender
+To: bounces+prueba-dsn-real@mail.64bitstudio.com
+Auto-Submitted: auto-replied
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status;
+	boundary="1FD46236.1787883707/mail.64bitstudio.com"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260828022147.224D6239@mail.64bitstudio.com>
+
+This is a MIME-encapsulated message.
+
+--1FD46236.1787883707/mail.64bitstudio.com
+Content-Description: Notification
+Content-Type: text/plain; charset=us-ascii
+
+This is the mail system at host mail.64bitstudio.com.
+
+I'm sorry to have to inform you that your message could not
+be delivered to one or more recipients. It's attached below.
+
+For further assistance, please send mail to postmaster.
+
+If you do so, please include this problem report. You can
+delete your own text from the attached returned message.
+
+                   The mail system
+
+<usuario-inexistente-xyz@mail.64bitstudio.com>: host
+    mail.64bitstudio.com[/var/run/dovecot/lmtp] said: 550 5.1.1
+    <usuario-inexistente-xyz@mail.64bitstudio.com> User doesn't exist:
+    usuario-inexistente-xyz@mail.64bitstudio.com (in reply to RCPT TO command)
+
+--1FD46236.1787883707/mail.64bitstudio.com
+Content-Description: Delivery report
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mail.64bitstudio.com
+X-Postfix-Queue-ID: 1FD46236
+X-Postfix-Sender: rfc822; bounces+prueba-dsn-real@mail.64bitstudio.com
+Arrival-Date: Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+
+Final-Recipient: rfc822; usuario-inexistente-xyz@mail.64bitstudio.com
+Original-Recipient: rfc822;usuario-inexistente-xyz@mail.64bitstudio.com
+Action: failed
+Status: 5.1.1
+Remote-MTA: dns; mail.64bitstudio.com
+Diagnostic-Code: smtp; 550 5.1.1 <usuario-inexistente-xyz@mail.64bitstudio.com>
+    User doesn't exist: usuario-inexistente-xyz@mail.64bitstudio.com
+
+--1FD46236.1787883707/mail.64bitstudio.com
+Content-Description: Undelivered Message
+Content-Type: message/rfc822
+
+Return-Path: <bounces+prueba-dsn-real@mail.64bitstudio.com>
+Received: from localhost (localhost [127.0.0.1])
+	by mail.64bitstudio.com (Postfix) with ESMTP id 1FD46236
+	for <usuario-inexistente-xyz@mail.64bitstudio.com>; Thu, 27 Aug 2026 20:21:47 -0600 (CST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=mail.64bitstudio.com;
+	s=mail; t=1787883707;
+	bh=g3zLYH4xKxcPrHOD18z9YfpQcnk/GaJedfustWU5uGs=; h=To:From:Subject;
+	b=C+PwB8bfyo90rQd15LXRik280BZW5X/AHYtyiYZ4Vimon7xXd5R503czfcC8x42ac
+	 UGg9hnGWRn6L/Ik1TsV6HLmw6xguRneVdaK07FPxF3q4QdEA4Fez2pGGI5XOwopWEk
+	 C4DlzkSJibq0c6EwGaWCOuJFU9Loa+ELUrfAVEJhUgyhRiqCkdhynjCshMjZaVOZhq
+	 PihVJ7uZCjyw6yr9zAMYWBe8keXrM/Yae2Ls70UE7Dw+KD95lwqnoNcPFS++Z6dCaU
+	 VfFrwGxBppCUqyGph+Ooi5plqpEqoIPxCpa19bvanNrnwyLb1uPm8MKGD7dTdrHSTA
+	 oelnFeoPzFlTQ==
+Received: from mail (localhost [IPv6:::1])
+	(Authenticated sender: noreply@mail.64bitstudio.com)
+	by mail.64bitstudio.com (Postfix) with ESMTPA id EA5E2230
+	for <usuario-inexistente-xyz@mail.64bitstudio.com>; Thu, 27 Aug 2026 20:21:46 -0600 (CST)
+Date: Thu, 27 Aug 2026 20:21:46 -0600
+To: usuario-inexistente-xyz@mail.64bitstudio.com
+From: bounces+prueba-dsn-real@mail.64bitstudio.com
+Subject: prueba dsn real
+X-MS-Reactions: disallow
+Message-Id: <20260827202146.000995@mail>
+
+test
+
+
+
+--1FD46236.1787883707/mail.64bitstudio.com--
