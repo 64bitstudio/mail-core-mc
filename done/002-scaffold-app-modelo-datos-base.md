@@ -80,7 +80,14 @@ de `docs/definiciones/mail-core-mc-v1.md`.
   código de producción. La única corrección que ofrece `npm audit fix`
   es *bajar* la versión de Prisma, no un parche real — se dejó como
   está en vez de downgradear.
-- **Pendiente de confirmar en este mismo PR:** el criterio de aceptación
-  de "CI en verde" se valida contra el pipeline real corriendo en el
-  runner nuevo, no solo localmente — ver el resultado del PR antes de
-  dar esto por cerrado del todo.
+- **CI validado en verde de verdad, no solo local:** el primer intento
+  real en el runner nuevo encontró y corrigió en el camino 3 problemas
+  que el build local no exponía: (1) faltaba `npx prisma generate` antes
+  de compilar (`src/generated/prisma` está gitignorado a propósito); (2)
+  condición de carrera — `docker compose up -d` retorna antes de que
+  Postgres acepte conexiones, hacía falta un `pg_isready` en loop antes
+  de migrar; (3) el Quality Gate action busca `.scannerwork/report-task.txt`
+  en la raíz por defecto, pero el análisis corre con `projectBaseDir: backend`
+  — hubo que apuntarlo explícitamente. Pipeline final:
+  https://github.com/marco-cortes/mail-core-mc/actions/runs/33131389056
+  (build + tests con cobertura + Quality Gate de Sonar, todo en verde).
