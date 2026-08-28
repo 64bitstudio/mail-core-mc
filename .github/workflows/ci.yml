@@ -44,6 +44,18 @@ jobs:
           echo "pg_port=$(docker compose port postgres 5432 | cut -d: -f2)" >> "$GITHUB_OUTPUT"
           echo "redis_port=$(docker compose port redis 6379 | cut -d: -f2)" >> "$GITHUB_OUTPUT"
 
+      # docker compose up -d retorna en cuanto el contenedor arranca, no
+      # cuando Postgres ya acepta conexiones — sin esto, "migrate deploy"
+      # corre en carrera contra el arranque real de Postgres (P1001).
+      - name: Esperar a que Postgres acepte conexiones
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T postgres pg_isready -U mail_core_mc && exit 0
+            sleep 1
+          done
+          echo "Postgres no respondió a tiempo" >&2
+          exit 1
+
       - name: Migrar base de datos de test
         env:
           DATABASE_URL: "postgresql://mail_core_mc:mail_core_mc_dev@localhost:${{ steps.ports.outputs.pg_port }}/mail_core_mc?schema=public"
