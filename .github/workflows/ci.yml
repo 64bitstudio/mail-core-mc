@@ -88,6 +88,12 @@ jobs:
       - name: Quality Gate de SonarQube
         uses: sonarsource/sonarqube-quality-gate-action@v1.2.1
         timeout-minutes: 5
+        with:
+          # La action no respeta el "working-directory" por defecto del
+          # job (no es un simple `run:` de shell) — el reporte quedó en
+          # backend/.scannerwork/ porque el análisis corrió con
+          # projectBaseDir: backend.
+          scanMetadataReportFile: backend/.scannerwork/report-task.txt
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
