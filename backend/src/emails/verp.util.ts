@@ -16,6 +16,7 @@ export function buildVerpAddress(messageId: string, domain: string): string {
 
 /** Extrae el message_id de una dirección VERP, o null si no matchea el patrón. */
 export function parseVerpAddress(address: string): string | null {
-  const match = address.match(new RegExp(`^${VERP_LOCAL_PART}\\+([^@]+)@`));
+  const pattern = new RegExp(String.raw`^${VERP_LOCAL_PART}\+([^@]+)@`);
+  const match = pattern.exec(address);
   return match ? match[1] : null;
 }

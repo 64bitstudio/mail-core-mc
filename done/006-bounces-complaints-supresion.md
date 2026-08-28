@@ -83,4 +83,8 @@ HU-4 en `docs/definiciones/mail-core-mc-v1.md`.
   (`202 suppressed`, sin encolar nada).
 - `docs/ARQUITECTURA.md`, `docs/README.md`, `docs/API.md` y
   `.env.example` actualizados.
+- **5 code smells reales que Sonar encontró** en los regex de VERP/DSN
+  (`String.raw` en vez de escapar `\`, `RegExp.exec()` en vez de
+  `String.match()`, `.some()` en vez de `.find()` cuando solo se
+  necesitaba un booleano) — corregidos, sin cambiar el comportamiento.
 

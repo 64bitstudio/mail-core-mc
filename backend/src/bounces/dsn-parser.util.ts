@@ -41,8 +41,8 @@ export async function parseDsnOrComplaint(raw: Buffer): Promise<ParsedBounceEmai
 
   // ARF (complaint): mailparser SÍ expone message/feedback-report como
   // .attachments (verificado — no es una suposición).
-  const feedbackReport = parsed.attachments.find((a) => a.contentType === 'message/feedback-report');
-  if (feedbackReport) {
+  const hasFeedbackReport = parsed.attachments.some((a) => a.contentType === 'message/feedback-report');
+  if (hasFeedbackReport) {
     return { type: 'complaint', messageId };
   }
 
@@ -77,6 +77,7 @@ export async function parseDsnOrComplaint(raw: Buffer): Promise<ParsedBounceEmai
 }
 
 function matchField(text: string, field: string): string | null {
-  const match = text.match(new RegExp(`^${field}:\\s*(.+)$`, 'im'));
+  const pattern = new RegExp(String.raw`^${field}:\s*(.+)$`, 'im');
+  const match = pattern.exec(text);
   return match ? match[1].trim() : null;
 }
