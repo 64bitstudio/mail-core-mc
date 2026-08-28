@@ -52,7 +52,10 @@ aplicación (ticket 005), no en la base de datos.
 | `status` | Ver nota arriba |
 | `recipient_email` | Destinatario |
 | `rendered_subject` | Asunto ya renderizado (auditoría — qué se mandó de verdad) |
-| `provider_message_id` | ID interno del envío (para correlacionar con logs de Postfix) |
+| `rendered_html` | HTML ya renderizado — el worker (ticket 004) solo envía, nunca vuelve a renderizar |
+| `provider_message_id` | `Message-Id` que devuelve Postfix al aceptar el envío |
+| `attempts_made` | Cuántos intentos de envío lleva (ticket 004, observabilidad de reintentos) |
+| `last_error` | Último error de envío, si lo hubo (para debug sin tener que ir a los logs de Postfix) |
 | `created_at`, `sent_at`, `last_status_at` | — |
 
 ### `suppression_entries`
