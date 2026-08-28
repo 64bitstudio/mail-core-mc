@@ -82,6 +82,41 @@ registro SPF).
   Quien lo llena es el ticket 005 (API de envío), que todavía no existe —
   mientras tanto se probó en vivo simulando ese paso directamente.
 
+## API de envío + resource server OAuth2 (ticket 005)
+
+`AuthModule` (`backend/src/auth/`): `mail-core-mc` valida JWTs de
+`auth-core-mc` vía `passport-jwt` + `jwks-rsa` contra su JWK Set — sin
+base de credenciales propia, sin volver a implementar login. Un
+`JwtAuthGuard` (401 si el token no es válido) + `ScopesGuard`
+(`@RequireScopes('mail:send')`, 403 si falta el scope) protegen
+`POST /v1/emails`.
+
+**Gotcha real de NestJS/`@nestjs/passport` encontrado al levantar la
+app:** `PassportModule.register(...)` (necesario para que `AuthGuard()`
+resuelva su `AuthModuleOptions`) hay que importarlo en **cada módulo**
+que use `@UseGuards(JwtAuthGuard)` por referencia de clase, no solo en
+`AuthModule` donde vive el guard — el DI de Nest resuelve la clase del
+guard con el injector del módulo que hospeda al controller
+(`EmailsModule`), no con el del módulo que lo declaró. Documentado
+también en `EmailsModule` mismo.
+
+`EmailsService.send()` es el punto donde se juntan los tickets
+anteriores: resuelve el tenant del llamante (find-or-create por
+`external_id`, ver `docs/BASE_DE_DATOS.md`), revisa supresión (global o
+de ese tenant), renderiza con `TemplatesService.render()` (ticket 003 —
+un `template_id` inexistente se traduce a `400`, no al `404` que
+`TemplatesService` lanza internamente, porque desde esta API es un dato
+de entrada inválido, no un recurso que buscar), y solo si nada de eso
+bloquea, crea el `Message` y encola (ticket 004).
+
+**Verificado en vivo, los 5 criterios de aceptación, contra
+`auth-core-mc` real corriendo** (no mocks): token válido + scope
+correcto → `202` → el worker lo entrega de verdad a Postfix →
+`status=sent`. Token de un segundo cliente sin `mail:send` → `403`. Sin
+token / token malformado → `401` (dos casos). Destinatario en supresión
+→ `202` con `status=suppressed`, sin encolar. `template_id` inexistente
+y variable faltante → `400` en ambos casos.
+
 ## Plan de calentamiento de IP (a ejecutar en la VM de producción)
 
 Rampa gradual de volumen diario recomendada para una IP/dominio sin

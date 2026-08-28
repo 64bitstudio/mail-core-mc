@@ -20,6 +20,13 @@ datasource db {
 model Tenant {
   id               String   @id @default(uuid())
   name             String
+  // Ticket 005: el tenant de negocio del llamante (ej. el tenant "Acme"
+  // dentro de auth-core-mc), string libre — no se valida contra
+  // auth-core-mc todavía (eso sería Fase 2). "__default__" es el tenant
+  // compartido cuando el llamante no manda tenantId. find-or-create por
+  // este campo en vez de por `id` porque `id` es nuestro UUID interno,
+  // no algo que el llamante conozca.
+  externalId       String?  @unique @map("external_id")
   fromDisplayName  String?  @map("from_display_name")
   replyTo          String?  @map("reply_to")
   brandColor       String?  @map("brand_color")
