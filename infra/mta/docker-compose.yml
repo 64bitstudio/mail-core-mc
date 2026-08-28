@@ -1,0 +1,37 @@
+# Infraestructura de envío transaccional (ticket 001, Fase 1).
+#
+# Por qué docker-mailserver en vez de armar Postfix+OpenDKIM a mano: es el
+# estándar de facto para self-hosted mail, con Postfix+OpenDKIM+OpenDMARC ya
+# integrados y probados (evita bugs de integración milter hechos a mano).
+# El mismo compose corre sin cambios cuando esto se mueva a la VM dedicada
+# (ticket de migración de la Fase 1, ver docs/definiciones/mail-core-mc-v1.md)
+# — solo cambia dónde vive el volumen de datos y la IP pública.
+#
+# Fase actual: dev, corriendo en la máquina de desarrollo (decisión
+# explícita del Product Owner mientras se valida el diseño). NO hay
+# registro PTR configurable desde aquí — la validación real de
+# entregabilidad (inbox placement) queda diferida a la VM.
+services:
+  mailserver-transactional:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: mail-core-mta-transactional
+    hostname: mail
+    domainname: 64bitstudio.com
+    env_file: mailserver-transactional.env
+    # host networking: la red virtual de Docker/OrbStack bloquea el saliente
+    # 25/tcp aunque el host sí lo tiene abierto (confirmado con nc). Con
+    # network_mode: host el contenedor usa la pila de red real de la Mac.
+    # Nota: esto es específico de la fase dev en esta máquina — en la VM de
+    # producción no hará falta este workaround (ahí el contenedor SÍ tendrá
+    # su propia IP pública real, sin NAT de por medio).
+    network_mode: host
+    volumes:
+      - ./docker-data/dms/mail-data:/var/mail
+      - ./docker-data/dms/mail-state:/var/mail-state
+      - ./docker-data/dms/mail-logs:/var/log/mail
+      - ./docker-data/dms/config:/tmp/docker-mailserver
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    stop_grace_period: 1m
+    cap_add:
+      - NET_ADMIN
