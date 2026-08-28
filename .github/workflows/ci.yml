@@ -16,6 +16,14 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      # El runner es self-hosted en la misma Mac donde se hace dev local
+      # — sin esto, "docker compose up/down" de CI usa el mismo nombre de
+      # proyecto (`name: mail-core-mc` en compose.yaml) que el entorno de
+      # dev, y un push mientras se está probando localmente tira los
+      # contenedores de dev a medio trabajo (encontrado en vivo en el
+      # ticket 003). Aislado por completo del docker-data de dev.
+      COMPOSE_PROJECT_NAME: mail-core-mc-ci
     steps:
       - uses: actions/checkout@v4
         with:
