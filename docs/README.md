@@ -87,6 +87,26 @@ reusando los mismos valores de `~/dev-infra/.env`. Las notificaciones de
 Telegram no usan secrets de GitHub: `notify.sh` corre en este mismo
 runner y ya tiene `~/dev-infra/.env` real en la máquina.
 
+## Probar el envío autenticado (ticket 005)
+
+`POST /v1/emails` necesita un JWT real de `auth-core-mc`. Para probarlo
+en dev, con `auth-core-mc` corriendo (`cd ../auth-core-mc/backend &&
+./gradlew bootRun`, ver su propio README):
+
+```bash
+TOKEN=$(curl -s -X POST $AUTH_CORE_MC_ISSUER_URI/oauth2/token \
+  -u "$AUTH_CORE_MC_CLIENT_ID:$AUTH_CORE_MC_CLIENT_SECRET" \
+  -d "grant_type=client_credentials&scope=mail:send" | jq -r .access_token)
+
+curl -X POST http://localhost:3000/v1/emails \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"templateId":"...","to":"...","variables":{...}}'
+```
+
+El `identity_client` de `mail-core-mc` en `auth-core-mc` se siembra a
+mano (sin endpoint de alta todavía, ver su ticket 048) — pide las
+credenciales si no las tienes.
+
 ## Infraestructura de envío (Postfix/DKIM)
 
 Ver `docs/ARQUITECTURA.md` — corre en Docker (`infra/mta/`), separado de

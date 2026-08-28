@@ -10,11 +10,16 @@ migraciones versionadas en `backend/prisma/migrations/`). Ver
 ### `tenants`
 Identidad de remitente por tenant (Fase 2, HU-8 — los campos ya existen
 en el esquema pero no se usan hasta entonces; mientras tanto todo tenant
-envía con el remitente por defecto del ecosistema).
+envía con el remitente por defecto del ecosistema). `external_id`
+(ticket 005) es el tenant de negocio del llamante (ej. un tenant de
+`auth-core-mc`) — find-or-create desde `POST /v1/emails`, sin validar
+contra `auth-core-mc` todavía. `"__default__"` es el tenant compartido
+que se usa cuando el llamante no manda `tenantId`.
 
 | Campo | Para qué es |
 |---|---|
-| `id` | UUID, PK |
+| `id` | UUID, PK (interno de mail-core-mc, no lo conoce el llamante) |
+| `external_id` | Tenant de negocio del llamante, string libre, único (ticket 005) |
 | `name` | Nombre del tenant |
 | `from_display_name` | Nombre de remitente a mostrar (nullable hasta Fase 2) |
 | `reply_to` | Reply-to del tenant (nullable hasta Fase 2) |
