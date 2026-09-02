@@ -10,6 +10,13 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+# Ticket 011: los .env reales de DEV/QA/PROD viven SOLO en la VM (nunca en
+# el checkout de git — ver docs/ARQUITECTURA.md, ticket 011), mismo patrón
+# que auth-core-mc/.gitignore (ticket 049). Sin estas excepciones, el
+# patrón ".env.*" de arriba también ignora las plantillas committeadas.
+!deploy/.env.dev.example
+!deploy/.env.qa.example
+!deploy/.env.prod.example
 
 # IDE
 .idea/

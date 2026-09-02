@@ -1,0 +1,107 @@
+# Ticket 011: stack DEV en la VM — mismo patrón que
+# auth-core-mc/deploy/docker-compose.dev.yml (ticket 049), adaptado a
+# Node/NestJS + Postgres/Redis PERSISTENTES (a diferencia del Postgres/
+# Redis efímeros que usa el job buildAndTest de Jenkins para tests, ver
+# backend/compose.yaml) — decisión ya tomada en el propio ticket 011
+# ("Base de datos/Redis de producción").
+#
+# "Bajo demanda" — igual que auth-core-mc, ver deploy/env-ctl.sh.
+#
+# Puertos de host reservados por mail-core-mc (coordinado con
+# auth-core-mc, que ya usa 8080/8081/8082 — ver
+# auth-core-mc/docs/ARQUITECTURA.md, "Convenciones de la VM"):
+# PROD 8083 / DEV 8084 / QA 8085.
+#
+# Nombre de proyecto explícito (mail-core-mc-dev) — evita choque con
+# QA/PROD o con el stack de auth-core-mc en la misma VM.
+name: mail-core-mc-dev
+
+services:
+  app:
+    image: mail-core-mc-dev:${IMAGE_TAG:?falta IMAGE_TAG (sha del commit a desplegar)}
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://mail_core_mc:${DB_PASSWORD:?falta DB_PASSWORD en deploy/.env.dev}@postgres:5432/mail_core_mc?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      AUTH_CORE_MC_ISSUER_URI: ${AUTH_CORE_MC_ISSUER_URI:-https://auth-dev.64bitstudio.com}
+      # Instancia transaccional de Postfix (ticket 001/009). Vacíos por
+      # default a propósito: el ticket 009 (migración del MTA a esta
+      # misma VM) todavía está en curso — sin un Postfix real alcanzable
+      # desde aquí, el envío/procesamiento de bounces no puede funcionar
+      # de verdad todavía. Esto NO bloquea el deploy: nodemailer crea el
+      # transporte de forma perezosa (falla solo al enviar, no al
+      # arrancar) y MaildirWatcherService loguea un warning y no arranca
+      # el watcher si BOUNCES_MAILDIR_PATH no está seteado (ver su propio
+      # código) — el healthcheck de este stack (DB+Redis, ver
+      # backend/src/health/health.controller.ts) no depende de esto.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@mail.64bitstudio.com}
+      SMTP_IGNORE_TLS: ${SMTP_IGNORE_TLS:-true}
+      VERP_DOMAIN: ${VERP_DOMAIN:-mail.64bitstudio.com}
+      BOUNCES_MAILDIR_PATH: ${BOUNCES_MAILDIR_PATH:-}
+      TRANSACTIONAL_MAX_ATTEMPTS: ${TRANSACTIONAL_MAX_ATTEMPTS:-5}
+      TRANSACTIONAL_BACKOFF_DELAY_MS: ${TRANSACTIONAL_BACKOFF_DELAY_MS:-2000}
+      WEBHOOK_MAX_ATTEMPTS: ${WEBHOOK_MAX_ATTEMPTS:-5}
+      WEBHOOK_BACKOFF_DELAY_MS: ${WEBHOOK_BACKOFF_DELAY_MS:-2000}
+    ports:
+      - "8084:3000"
+    networks:
+      - default
+      - edge
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    # Ingress compartido de la VM (Traefik) — labels de host/dominio se
+    # agregan en un commit aparte una vez definido el subdominio público
+    # de la app (distinto de mail.64bitstudio.com, que ya es el hostname
+    # del MTA — ver ticket 011). Hasta entonces, este stack se verifica
+    # por el puerto de host publicado arriba (8084) y por nombre de
+    # contenedor dentro de la red "edge" (mail-core-mc-dev-app-1:3000).
+    labels:
+      - "traefik.enable=false"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mail_core_mc
+      POSTGRES_USER: mail_core_mc
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en deploy/.env.dev}
+    volumes:
+      - mail_core_mc_dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail_core_mc -d mail_core_mc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - mail_core_mc_dev_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  mail_core_mc_dev_pgdata:
+  mail_core_mc_dev_redisdata:
