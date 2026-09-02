@@ -51,12 +51,19 @@ corePipeline(
 
                 // Postgres/Redis efímeros de test, vía docker.sock
                 // (Jenkins ya lo monta) -- mismo patrón que el ci.yml
-                // retirado (GitHub Actions). COMPOSE_PROJECT_NAME
-                // distinto de "mail-core-mc" (el que usa dev local) --
-                // evita chocar con un dev local corriendo en paralelo en
-                // la misma VM/Mac.
+                // retirado (GitHub Actions), MÁS el override
+                // docker-compose.ci.yml (ver ese archivo para el hallazgo
+                // real completo: "localhost:<puerto publicado>" no es
+                // alcanzable desde el contenedor de Jenkins -- hay que
+                // hablarle a los contenedores por nombre, vía la red
+                // "edge"). COMPOSE_PROJECT_NAME distinto de "mail-core-mc"
+                // (el que usa dev local) -- evita chocar con un dev local
+                // corriendo en paralelo en la misma VM/Mac; nombres de
+                // contenedor resultantes: mail-core-mc-ci-postgres-1 /
+                // mail-core-mc-ci-redis-1 (determinístico, ver
+                // corePipeline.groovy para el mismo criterio de nombrado).
                 withEnv(['COMPOSE_PROJECT_NAME=mail-core-mc-ci']) {
-                    sh 'docker compose up -d'
+                    sh 'docker compose -f compose.yaml -f docker-compose.ci.yml up -d'
                     try {
                         // docker compose up -d retorna en cuanto el
                         // contenedor arranca, no cuando Postgres ya
@@ -70,23 +77,19 @@ corePipeline(
                             echo "Postgres no respondio a tiempo" >&2
                             exit 1
                         '''
-                        script {
-                            def pgPort = sh(script: 'docker compose port postgres 5432 | cut -d: -f2', returnStdout: true).trim()
-                            def redisPort = sh(script: 'docker compose port redis 6379 | cut -d: -f2', returnStdout: true).trim()
-                            withEnv([
-                                "DATABASE_URL=postgresql://mail_core_mc:mail_core_mc_dev@localhost:${pgPort}/mail_core_mc?schema=public",
-                                "REDIS_URL=redis://localhost:${redisPort}"
-                            ]) {
-                                withSonarQubeEnv('sonarqube-vm') {
-                                    sh 'npx prisma migrate deploy'
-                                    sh 'npm run build'
-                                    sh 'npm run test:cov'
-                                    sh 'sonar-scanner'
-                                }
+                        withEnv([
+                            'DATABASE_URL=postgresql://mail_core_mc:mail_core_mc_dev@mail-core-mc-ci-postgres-1:5432/mail_core_mc?schema=public',
+                            'REDIS_URL=redis://mail-core-mc-ci-redis-1:6379'
+                        ]) {
+                            withSonarQubeEnv('sonarqube-vm') {
+                                sh 'npx prisma migrate deploy'
+                                sh 'npm run build'
+                                sh 'npm run test:cov'
+                                sh 'sonar-scanner'
                             }
                         }
                     } finally {
-                        sh 'docker compose down'
+                        sh 'docker compose -f compose.yaml -f docker-compose.ci.yml down'
                     }
                 }
             }
