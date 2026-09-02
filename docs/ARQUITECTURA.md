@@ -333,9 +333,12 @@ deja pasar el merge aunque el build interno de Jenkins esté en verde.
 Detalle completo, incluida la acción exacta pendiente, en
 `in-process/011-pipeline-cicd-deploy-vm.md`.
 
-**Pendiente de decisión de Marco**: subdominio público de la app
+**Subdominio público, decidido por Marco**: `mailcore.64bitstudio.com`
 (`mail.64bitstudio.com` ya es el hostname del MTA, no reusable) —
-candidatos evaluados en el ticket.
+`mailcore-qa`/`mailcore-dev` para QA/DEV, mismo patrón de sufijos que
+auth-core-mc. Vhost/`certbotDomains`/labels de Traefik ya implementados
+— pendiente que Marco cree los 3 registros DNS en Cloudflare y de la
+verificación real (bloqueada por el mismo pendiente de la GitHub App).
 
 **Dependencia real con el ticket 009** (MTA a la VM, no cerrado
 todavía): `SMTP_*`/`BOUNCES_MAILDIR_PATH` quedan vacíos en dev/qa/prod

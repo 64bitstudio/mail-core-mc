@@ -63,14 +63,17 @@ services:
       timeout: 5s
       retries: 12
       start_period: 40s
-    # Ingress compartido de la VM (Traefik) — labels de host/dominio se
-    # agregan en un commit aparte una vez definido el subdominio público
-    # de la app (distinto de mail.64bitstudio.com, que ya es el hostname
-    # del MTA — ver ticket 011). Hasta entonces, este stack se verifica
-    # por el puerto de host publicado arriba (8084) y por nombre de
-    # contenedor dentro de la red "edge" (mail-core-mc-dev-app-1:3000).
+    # Ingress compartido de la VM (Traefik) — enruta
+    # mailcore-dev.64bitstudio.com hacia este contenedor (subdominio
+    # decidido por Marco, distinto de mail.64bitstudio.com, que ya es el
+    # hostname del MTA — ver ticket 011). El puerto de host (8084) sigue
+    # publicado además, sin Traefik de por medio.
     labels:
-      - "traefik.enable=false"
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      - "traefik.http.routers.mail-core-mc-dev.rule=Host(`mailcore-dev.64bitstudio.com`)"
+      - "traefik.http.routers.mail-core-mc-dev.entrypoints=web"
+      - "traefik.http.services.mail-core-mc-dev.loadbalancer.server.port=3000"
 
   postgres:
     image: postgres:16-alpine

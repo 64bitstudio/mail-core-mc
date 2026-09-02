@@ -45,8 +45,16 @@ services:
       timeout: 5s
       retries: 12
       start_period: 40s
+    # Ingress compartido de la VM (Traefik) — enruta
+    # mailcore.64bitstudio.com hacia este contenedor (subdominio decidido
+    # por Marco, distinto de mail.64bitstudio.com, que ya es el hostname
+    # del MTA — ver ticket 011).
     labels:
-      - "traefik.enable=false"
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      - "traefik.http.routers.mail-core-mc-prod.rule=Host(`mailcore.64bitstudio.com`)"
+      - "traefik.http.routers.mail-core-mc-prod.entrypoints=web"
+      - "traefik.http.services.mail-core-mc-prod.loadbalancer.server.port=3000"
 
   postgres:
     image: postgres:16-alpine

@@ -264,25 +264,35 @@ Organization settings → `64bitstudio` → Installed GitHub Apps →
 `64bitstudio-jenkins-ci` → Configure → Repository access → agregar
 `mail-core-mc` a la lista de repos seleccionados.
 
-### Pendiente de decisión de Marco — subdominio público de la app
+### Subdominio público de la app — decidido por Marco: `mailcore.64bitstudio.com`
 
-`vhostFile`/`certbotDomains` del `Jenkinsfile` quedan fuera a propósito
-de este ticket: `mail.64bitstudio.com` ya es el hostname del MTA
-(ticket 001/009 de este repo) y no se puede reusar para la app HTTP.
-Revisé los DNS reales de Cloudflare (zona `64bitstudio.com`) — no hay
-ningún subdominio tipo `mail-api`/`mailcore`/`mail-core` registrado
-todavía, así que cualquiera de esas opciones es viable sin choque.
-Candidatos con sus tradeoffs:
-- `mail-api.64bitstudio.com` — más claro sobre qué es (API HTTP, no el
-  MTA), pero se aparta del patrón "nombre pelado" que usa
-  `auth.64bitstudio.com`.
-- `mailcore.64bitstudio.com` (o `mail-core.64bitstudio.com`) — más
-  cercano al nombre real del proyecto/imagen Docker, mismo criterio que
-  `auth.64bitstudio.com`.
+`mail.64bitstudio.com` ya es el hostname del MTA (ticket 001/009 de este
+repo), no reusable para la app HTTP — revisé los DNS reales de
+Cloudflare (zona `64bitstudio.com`) antes de proponer candidatos, sin
+ningún choque. Marco eligió `mailcore.64bitstudio.com` (vs. la otra
+opción evaluada, `mail-api.64bitstudio.com`). Los sufijos
+`-qa`/`-dev` para QA/DEV siguen el mismo patrón ya establecido por
+auth-core-mc (ticket 049, único que existe en este ecosistema para 3
+subdominios por proyecto) — no una decisión nueva, aplicación mecánica
+del patrón ya aprobado:
+- PROD → `mailcore.64bitstudio.com`
+- QA → `mailcore-qa.64bitstudio.com`
+- DEV → `mailcore-dev.64bitstudio.com`
 
-Hasta que Marco decida, DEV/QA/PROD se pueden desplegar y verificar por
-el puerto de host publicado (8083/8084/8085) y por nombre de contenedor
-dentro de la red `edge` — sin exposición pública todavía.
+Implementado: `deploy/vm-infra/nginx/mail-core-mc.conf` (vhost, solo
+HTTP por ahora — igual que `auth-core-mc.conf` antes de que el DNS
+resolviera), `Jenkinsfile` (`vhostFile`/`certbotDomains`),
+`deploy/docker-compose.{dev,qa,prod}.yml` (labels de Traefik con el
+`Host()` real por ambiente, reemplazando el `traefik.enable=false`
+provisional). **Pendiente de verificación real** (bloqueada por el
+mismo problema de la GitHub App de arriba: no hay merge a `dev`
+todavía, así que no hay deploy real que probar): los 3 registros DNS en
+Cloudflare (`mailcore[.-qa][-dev].64bitstudio.com` → la IP pública de
+la VM) los tiene que crear Marco, igual que se hizo para auth-core-mc —
+sin token de API de Cloudflare disponible para hacerlo automático desde
+aquí. `certbotDomains` en `corePipeline` corre `certbot --nginx`
+automático en cada deploy a `dev` (tolerante a fallo si el DNS aún no
+resolvió — no bloquea el resto del pipeline).
 
 ### Dependencia real con el ticket 009 (MTA a la VM, en curso, no cerrado)
 
@@ -300,19 +310,21 @@ aterrice.
 ### Qué falta para cerrar este ticket, en orden
 
 1. Marco (Owner de la organización) agrega `mail-core-mc` a la
-   instalación de la GitHub App `64bitstudio-jenkins-ci`.
-2. Con eso resuelto: re-disparar el build de `feature/011-pipeline-cicd-deploy-vm`
-   (push trivial o rebuild manual), confirmar que el status
-   `continuous-integration/jenkins/branch` SÍ llega a GitHub, y que el
-   PR #12 pasa a `MERGEABLE`/`CLEAN`.
-3. Self-merge de `feature/011 → dev` (autorizado, CI verde de verdad).
-4. Verificar el deploy real a DEV disparado por ese merge: `docker
-   compose ps` en la VM + `curl` real al puerto de host (8084) o al
-   nombre de contenedor `mail-core-mc-dev-app-1:3000/health` desde
-   dentro de la VM.
-5. Decisión de Marco sobre el subdominio → commit con `vhostFile`/
-   `certbotDomains` en el `Jenkinsfile` → verificar HTTPS real desde
-   afuera de la VM (mismo patrón que
+   instalación de la GitHub App `64bitstudio-jenkins-ci` — **ya
+   solicitado directamente por el orquestador, en espera de
+   confirmación.**
+2. Marco crea los 3 registros DNS en Cloudflare
+   (`mailcore[.-qa][-dev].64bitstudio.com` → IP pública de la VM) —
+   mismo patrón que para auth-core-mc.
+3. Con (1) resuelto: re-disparar el build de
+   `feature/011-pipeline-cicd-deploy-vm` (push trivial o rebuild
+   manual), confirmar que el status `continuous-integration/jenkins/branch`
+   SÍ llega a GitHub, y que el PR #12 pasa a `MERGEABLE`/`CLEAN`.
+4. Self-merge de `feature/011 → dev` (autorizado, CI verde de verdad).
+5. Verificar el deploy real a DEV disparado por ese merge: `docker
+   compose ps` en la VM, `curl` real al puerto de host (8084) y —con
+   (2) resuelto— `curl https://mailcore-dev.64bitstudio.com/health`
+   desde afuera de la VM (mismo patrón que
    `curl https://auth-dev.64bitstudio.com/actuator/health`).
 6. Pedir al orquestador el merge `dev → qa` para completar la
    verificación de punta a punta pedida por el ticket (nunca lo hace

@@ -17,15 +17,12 @@
 // (el default de corePipeline, '"status":"UP"', es de Spring Boot
 // Actuator y nunca aparecería aquí).
 //
-// vhostFile/certbotDomains: pendientes de un commit aparte, a propósito
-// -- requieren que Marco decida el subdominio público de la app (ver
-// docs/ARQUITECTURA.md, ticket 011, "Subdominio público -- pendiente de
-// decisión de Marco"; mail.64bitstudio.com ya es el hostname del MTA,
-// ticket 001/009, no puede reusarse para esto). Hasta entonces, DEV/QA/
-// PROD se despliegan y se verifican por el puerto de host publicado en
-// cada docker-compose.<env>.yml (8083/8084/8085) y por nombre de
-// contenedor dentro de la red "edge" -- sin exposición pública todavía,
-// igual que auth-core-mc antes de que existiera su vhost (ticket 049).
+// vhostFile/certbotDomains: subdominio decidido por Marco --
+// mailcore.64bitstudio.com (NO mail.64bitstudio.com, que ya es el
+// hostname del MTA, ticket 001/009). Sufijos -qa/-dev: mismo patrón ya
+// establecido por auth-core-mc (ticket 049), único que existe en este
+// ecosistema para 3 subdominios por proyecto -- no una decisión nueva.
+// Ver deploy/vm-infra/nginx/mail-core-mc.conf.
 //
 // Requiere Node.js 24 + sonar-scanner CLI en la imagen de Jenkins --
 // agregados en platform (deploy/vm-infra/jenkins/Dockerfile, ticket
@@ -40,6 +37,8 @@ corePipeline(
     containerPort: 3000,
     healthPath: '/health',
     healthyPattern: '"database":"ok"',
+    vhostFile: 'deploy/vm-infra/nginx/mail-core-mc.conf',
+    certbotDomains: ['mailcore.64bitstudio.com', 'mailcore-qa.64bitstudio.com', 'mailcore-dev.64bitstudio.com'],
     buildAndTest: {
         withEnv(["PATH+SONAR=/opt/sonar-scanner/bin"]) {
             dir('backend') {
