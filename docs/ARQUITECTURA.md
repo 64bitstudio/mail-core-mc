@@ -267,7 +267,7 @@ detectables, se pausa la rampa hasta entender la causa antes de seguir
 subiendo volumen. Este plan aplica desde el día 1 de la VM de
 producción, no durante la fase de desarrollo local.
 
-## Ticket 011: pipeline de CI/CD a la VM (Jenkins/corePipeline) — EN CURSO
+## Ticket 011: pipeline de CI/CD a la VM (Jenkins/corePipeline) — CERRADO
 
 El ticket original (en `pending/`/`in-process/`) describía GitHub
 Actions con ramas `integracion`/`main`; reemplazado por el pivote a
@@ -322,23 +322,34 @@ conecta los servicios de test a la red `edge`); y un leak real de
 sin `set +x` en el `post{always}` — ya corregido en `platform`,
 `64bitstudio/platform#27`).
 
-**Bloqueador real, pendiente de una acción de Marco (Owner de la
-organización)**: la GitHub App `64bitstudio-jenkins-ci` NO tiene
-`mail-core-mc` en su lista de repos instalados (verificado con un JWT
-real de la App + installation token, `GET /installation/repositories`
-→ solo `auth-core-mc`) — sin esto, Jenkins no puede reportar el commit
-status `continuous-integration/jenkins/branch` a GitHub (403 "Resource
-not accessible by integration"), y la branch protection de `dev` nunca
-deja pasar el merge aunque el build interno de Jenkins esté en verde.
-Detalle completo, incluida la acción exacta pendiente, en
-`in-process/011-pipeline-cicd-deploy-vm.md`.
+**Bloqueador real, resuelto por Marco**: la GitHub App
+`64bitstudio-jenkins-ci` no tenía `mail-core-mc` en su lista de repos
+instalados (verificado con un JWT real de la App + installation token,
+`GET /installation/repositories` → solo listaba `auth-core-mc`) — sin
+esto, Jenkins no podía reportar el commit status
+`continuous-integration/jenkins/branch` a GitHub (403 "Resource not
+accessible by integration"), y la branch protection de `dev` nunca
+dejaba pasar el merge aunque el build interno de Jenkins estuviera en
+verde. Marco agregó el repo a la instalación — reverificado con el
+mismo mecanismo (ahora lista `auth-core-mc`, `mail-core-mc`,
+`platform`), y confirmado en vivo: el status sí llegó a GitHub en el
+build de re-disparo.
 
 **Subdominio público, decidido por Marco**: `mailcore.64bitstudio.com`
 (`mail.64bitstudio.com` ya es el hostname del MTA, no reusable) —
 `mailcore-qa`/`mailcore-dev` para QA/DEV, mismo patrón de sufijos que
-auth-core-mc. Vhost/`certbotDomains`/labels de Traefik ya implementados
-— pendiente que Marco cree los 3 registros DNS en Cloudflare y de la
-verificación real (bloqueada por el mismo pendiente de la GitHub App).
+auth-core-mc. Marco creó los 3 registros DNS en Cloudflare — certbot
+emitió el certificado real en el primer deploy a `dev` (SAN único para
+los 3 subdominios, vence 2026-12-01), verificado desde afuera de la VM:
+`curl https://mailcore-dev.64bitstudio.com/health` → `200`, TLS válido.
+
+**Deploy real a DEV, verificado de punta a punta** (`dev`, build #2,
+`SUCCESS`): imagen construida, vhost aplicado, certificado emitido,
+`DB_PASSWORD` obtenido de Vault sin imprimirlo, los 3 contenedores
+(`app`/`postgres`/`redis`) `healthy`, healthcheck real en verde,
+`cleanup.sh` corrió sin borrar la imagen en uso. QA/PROD no se
+dispararon en este ticket (fuera de su alcance — `dev → qa` lo mergea
+el orquestador cuando decida, `qa → prod` es exclusivo de Marco).
 
 **Dependencia real con el ticket 009** (MTA a la VM, no cerrado
 todavía): `SMTP_*`/`BOUNCES_MAILDIR_PATH` quedan vacíos en dev/qa/prod
