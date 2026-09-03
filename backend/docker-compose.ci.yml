@@ -1,0 +1,32 @@
+# Ticket 011 -- override SOLO para el job buildAndTest de Jenkins,
+# aplicado junto a compose.yaml (docker compose -f compose.yaml -f
+# docker-compose.ci.yml). NO se usa en dev local (compose.yaml solo).
+#
+# Hallazgo real (primer build real del Jenkinsfile de este ticket):
+# Jenkins mismo corre containerizado (agent any = el propio controller,
+# ver platform/deploy/vm-infra/jenkins/docker-compose.yml) -- "localhost"
+# desde un step de Jenkins es el loopback del CONTENEDOR DE JENKINS, no
+# del host. El puerto efímero que "docker compose port postgres 5432"
+# resuelve está publicado en el HOST, nunca alcanzable así desde dentro
+# de Jenkins -- por eso "prisma migrate deploy" fallaba con
+# "P1001: Can't reach database server at localhost:<puerto>" pese a que
+# "docker compose exec postgres pg_isready" (que sí habla con el daemon
+# Docker real vía docker.sock, no por red) confirmaba Postgres arriba.
+# Mismo bug, misma causa raíz, que el ya documentado en
+# platform/vars/corePipeline.groovy ("Hallazgo real" del healthcheck de
+# deploy) -- resuelto aquí con el mismo mecanismo: conectar a la red
+# "edge" (donde Jenkins también vive) y alcanzar los contenedores por su
+# NOMBRE en vez de por "localhost:<puerto publicado>".
+services:
+  postgres:
+    networks:
+      - default
+      - edge
+  redis:
+    networks:
+      - default
+      - edge
+
+networks:
+  edge:
+    external: true
