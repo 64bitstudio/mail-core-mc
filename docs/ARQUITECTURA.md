@@ -266,3 +266,82 @@ Si en cualquier semana la tasa de bounce supera ~2% o hay quejas de spam
 detectables, se pausa la rampa hasta entender la causa antes de seguir
 subiendo volumen. Este plan aplica desde el día 1 de la VM de
 producción, no durante la fase de desarrollo local.
+
+## Ticket 011: pipeline de CI/CD a la VM (Jenkins/corePipeline) — EN CURSO
+
+El ticket original (en `pending/`/`in-process/`) describía GitHub
+Actions con ramas `integracion`/`main`; reemplazado por el pivote a
+Jenkins ya vigente para todo el ecosistema (ver
+`auth-core-mc/done/049-pipeline-cicd-deploy-vm.md`, "SEGUNDO PIVOTE", y
+`platform/docs/ARQUITECTURA.md`). Mismo patrón que auth-core-mc, copiado
+y adaptado — sin reinventar nada:
+
+- **Jenkinsfile** mínimo con `@Library('platform') _` +
+  `corePipeline(...)`, `buildAndTest` propio (npm/Prisma/vitest/
+  sonar-scanner en vez de Gradle), `containerPort: 3000`,
+  `healthPath: '/health'`, `healthyPattern: '"database":"ok"'` (el
+  healthcheck propio de `backend/src/health/health.controller.ts`, no
+  Spring Boot Actuator).
+- **`backend/Dockerfile`**: `node:24-slim`, no alpine — evita a
+  propósito la clase de bugs de compatibilidad musl/OpenSSL de los
+  binarios de `@prisma/engines` (aunque el cliente en sí usa el driver
+  adapter `@prisma/adapter-pg`, sin motor nativo, `prisma migrate
+  deploy` sigue necesitando un binario de motor). `ENTRYPOINT` corre
+  `npx prisma migrate deploy` antes de arrancar la app — necesario
+  porque, a diferencia de Spring Boot/Flyway, Prisma no migra solo al
+  bootear.
+- **`deploy/docker-compose.{dev,qa,prod}.yml`**: Postgres/Redis
+  persistentes (volúmenes). Puertos de host reservados (coordinado con
+  auth-core-mc, que ya usa 8080/8081/8082): **PROD 8083 / DEV 8084 / QA
+  8085**.
+- **`deploy/cleanup.sh`/`deploy/env-ctl.sh`**: copiados de
+  `auth-core-mc/deploy/` (ticket 049), adaptados solo de nombre.
+- **Secretos**: `DB_PASSWORD` vía Vault (`secret/mail-core-mc/<env>`,
+  KV v2) — mismo default de `corePipeline` que ya usa auth-core-mc, sin
+  ningún cambio de policy (la AppRole `jenkins-infra` ya cubre cualquier
+  proyecto vía wildcard de un segmento). `SMTP_*`/
+  `BOUNCES_MAILDIR_PATH` quedan como variables simples (vacías por
+  defecto) — decisión explícita de no meter Vault Transit/AppRole propio
+  aquí: mail-core-mc no tiene el caso de uso de cifrado por tenant que sí
+  tiene auth-core-mc (ticket 017); el objetivo de este ticket es que el
+  pipeline funcione, no sobre-construir.
+- **Jenkins ampliado** (repo `platform`): Node.js 24 + sonar-scanner CLI
+  agregados a la imagen compartida (no existían — auth-core-mc usa el
+  plugin de Sonar de Gradle, self-contained). Verificado en vivo:
+  `node --version` → v24.20.0, `sonar-scanner --version` → 6.2.1.4610,
+  nativo en Linux aarch64 (la VM real).
+
+**2 hallazgos reales encontrados corriendo el pipeline de verdad** (ver
+`in-process/011-pipeline-cicd-deploy-vm.md` para el detalle completo con
+evidencia): Postgres/Redis de test no eran alcanzables por `localhost`
+desde el contenedor de Jenkins (mismo bug ya documentado en
+`corePipeline.groovy` para el healthcheck de deploy, no aplicado al
+principio a este propio pipeline — fix: `backend/docker-compose.ci.yml`,
+conecta los servicios de test a la red `edge`); y un leak real de
+`TELEGRAM_BOT_TOKEN` en el log de consola de Jenkins (`corePipeline.groovy`
+sin `set +x` en el `post{always}` — ya corregido en `platform`,
+`64bitstudio/platform#27`).
+
+**Bloqueador real, pendiente de una acción de Marco (Owner de la
+organización)**: la GitHub App `64bitstudio-jenkins-ci` NO tiene
+`mail-core-mc` en su lista de repos instalados (verificado con un JWT
+real de la App + installation token, `GET /installation/repositories`
+→ solo `auth-core-mc`) — sin esto, Jenkins no puede reportar el commit
+status `continuous-integration/jenkins/branch` a GitHub (403 "Resource
+not accessible by integration"), y la branch protection de `dev` nunca
+deja pasar el merge aunque el build interno de Jenkins esté en verde.
+Detalle completo, incluida la acción exacta pendiente, en
+`in-process/011-pipeline-cicd-deploy-vm.md`.
+
+**Subdominio público, decidido por Marco**: `mailcore.64bitstudio.com`
+(`mail.64bitstudio.com` ya es el hostname del MTA, no reusable) —
+`mailcore-qa`/`mailcore-dev` para QA/DEV, mismo patrón de sufijos que
+auth-core-mc. Vhost/`certbotDomains`/labels de Traefik ya implementados
+— pendiente que Marco cree los 3 registros DNS en Cloudflare y de la
+verificación real (bloqueada por el mismo pendiente de la GitHub App).
+
+**Dependencia real con el ticket 009** (MTA a la VM, no cerrado
+todavía): `SMTP_*`/`BOUNCES_MAILDIR_PATH` quedan vacíos en dev/qa/prod
+hasta que el MTA viva en esta misma VM — no bloquea el deploy (el
+healthcheck es solo DB+Redis) pero el envío/procesamiento de bounces
+reales no funciona todavía en esos ambientes.

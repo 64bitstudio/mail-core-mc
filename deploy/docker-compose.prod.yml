@@ -1,0 +1,91 @@
+# Ticket 011: stack PROD en la VM — recibe la MISMA imagen ya validada
+# en QA (promovida por corePipeline, nunca reconstruida). Siempre activo
+# (a diferencia de DEV/QA, que corren bajo demanda). Ver
+# deploy/docker-compose.dev.yml para el resto del contexto.
+#
+# El merge `qa -> prod` es exclusivo de Marco (ver Jenkinsfile/
+# corePipeline: gate manual, submitter 'marco') — este stack solo se
+# despliega cuando él aprueba esa promoción explícitamente.
+name: mail-core-mc-prod
+
+services:
+  app:
+    image: mail-core-mc-prod:${IMAGE_TAG:?falta IMAGE_TAG (sha del commit a promover)}
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://mail_core_mc:${DB_PASSWORD:?falta DB_PASSWORD en deploy/.env.prod}@postgres:5432/mail_core_mc?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      AUTH_CORE_MC_ISSUER_URI: ${AUTH_CORE_MC_ISSUER_URI:-https://auth.64bitstudio.com}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@mail.64bitstudio.com}
+      SMTP_IGNORE_TLS: ${SMTP_IGNORE_TLS:-true}
+      VERP_DOMAIN: ${VERP_DOMAIN:-mail.64bitstudio.com}
+      BOUNCES_MAILDIR_PATH: ${BOUNCES_MAILDIR_PATH:-}
+      TRANSACTIONAL_MAX_ATTEMPTS: ${TRANSACTIONAL_MAX_ATTEMPTS:-5}
+      TRANSACTIONAL_BACKOFF_DELAY_MS: ${TRANSACTIONAL_BACKOFF_DELAY_MS:-2000}
+      WEBHOOK_MAX_ATTEMPTS: ${WEBHOOK_MAX_ATTEMPTS:-5}
+      WEBHOOK_BACKOFF_DELAY_MS: ${WEBHOOK_BACKOFF_DELAY_MS:-2000}
+    ports:
+      - "8083:3000"
+    networks:
+      - default
+      - edge
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    # Ingress compartido de la VM (Traefik) — enruta
+    # mailcore.64bitstudio.com hacia este contenedor (subdominio decidido
+    # por Marco, distinto de mail.64bitstudio.com, que ya es el hostname
+    # del MTA — ver ticket 011).
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      - "traefik.http.routers.mail-core-mc-prod.rule=Host(`mailcore.64bitstudio.com`)"
+      - "traefik.http.routers.mail-core-mc-prod.entrypoints=web"
+      - "traefik.http.services.mail-core-mc-prod.loadbalancer.server.port=3000"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mail_core_mc
+      POSTGRES_USER: mail_core_mc
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en deploy/.env.prod}
+    volumes:
+      - mail_core_mc_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail_core_mc -d mail_core_mc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - mail_core_mc_prod_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  mail_core_mc_prod_pgdata:
+  mail_core_mc_prod_redisdata:

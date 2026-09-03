@@ -1,26 +1,97 @@
-// Ticket 002 de platform, punto 11: Jenkinsfile MÍNIMO -- deja la infra
-// (ramas dev/qa/prod, branch protection, webhook automático a Jenkins,
-// Shared Library) lista y funcionando de punta a punta, SIN el pipeline
-// de aplicación real de mail-core-mc (build/test/Sonar con el
-// toolchain Node, Dockerfile, deploy/docker-compose.*.yml, cleanup.sh
-// -- eso es el ticket propio 011 de este repo, sin empezar, a propósito
-// fuera de alcance aquí).
+// Ticket 011: reemplaza el Jenkinsfile mínimo de platform/002 (punto 11,
+// `deploy: false`, sin buildAndTest) — ahora que existen
+// backend/Dockerfile, deploy/docker-compose.{dev,qa,prod}.yml y
+// deploy/cleanup.sh, se activa el pipeline de aplicación real: build +
+// test con cobertura + análisis SonarQube (toolchain Node, distinto del
+// Gradle de auth-core-mc) + build de imagen + deploy dev/qa/prod +
+// promoción manual a PROD (gate exclusivo de Marco, sin cambios -- lo
+// gestiona corePipeline mismo).
 //
-// config.deploy: false desactiva TODAS las etapas de imagen/vhost/
-// deploy dev-qa-prod de corePipeline (no existen Dockerfile ni
-// deploy/docker-compose.*.yml todavía). config.buildAndTest se omite
-// del todo (no hay toolchain Node instalado en la imagen de Jenkins
-// todavía, ni sonar-scanner para JS/TS) -- corePipeline lo trata como
-// placeholder explícito, no oculto.
+// containerPort: 3000 (Nest escucha en process.env.PORT ?? 3000, ver
+// backend/src/main.ts) -- el default de corePipeline es 8080 (asume
+// Spring Boot), así que hay que pasarlo explícito.
+// healthPath: '/health' (backend/src/health/health.controller.ts) -- NO
+// existe /actuator/health aquí, es un healthcheck propio (Postgres +
+// Redis, sin @nestjs/terminus, ver el comentario de ese archivo).
+// healthyPattern: la respuesta exitosa es {"database":"ok","redis":"ok"}
+// (el default de corePipeline, '"status":"UP"', es de Spring Boot
+// Actuator y nunca aparecería aquí).
 //
-// Cuando el ticket 011 de este repo arranque, este Jenkinsfile se
-// actualiza: agrega buildAndTest (npm ci + prisma generate + test +
-// sonar-scanner) y quita deploy:false (o lo deja en true, su default)
-// una vez existan Dockerfile/deploy/docker-compose.*.yml/cleanup.sh.
-
+// vhostFile/certbotDomains: subdominio decidido por Marco --
+// mailcore.64bitstudio.com (NO mail.64bitstudio.com, que ya es el
+// hostname del MTA, ticket 001/009). Sufijos -qa/-dev: mismo patrón ya
+// establecido por auth-core-mc (ticket 049), único que existe en este
+// ecosistema para 3 subdominios por proyecto -- no una decisión nueva.
+// Ver deploy/vm-infra/nginx/mail-core-mc.conf.
+//
+// Requiere Node.js 24 + sonar-scanner CLI en la imagen de Jenkins --
+// agregados en platform (deploy/vm-infra/jenkins/Dockerfile, ticket
+// platform/007), mismo patrón que la adición de Temurin 25 para
+// auth-core-mc (ver corePipeline.groovy). El withEnv de más abajo activa
+// el PATH del scanner SOLO para este closure, sin tocar el resto del
+// contenedor de Jenkins.
 @Library('platform') _
 
 corePipeline(
     projectName: 'mail-core-mc',
-    deploy: false
+    containerPort: 3000,
+    healthPath: '/health',
+    healthyPattern: '"database":"ok"',
+    vhostFile: 'deploy/vm-infra/nginx/mail-core-mc.conf',
+    certbotDomains: ['mailcore.64bitstudio.com', 'mailcore-qa.64bitstudio.com', 'mailcore-dev.64bitstudio.com'],
+    buildAndTest: {
+        withEnv(["PATH+SONAR=/opt/sonar-scanner/bin"]) {
+            dir('backend') {
+                sh 'npm ci'
+                // src/generated/prisma es código generado, gitignorado a
+                // propósito -- sin este paso el build falla (mismo
+                // hallazgo real que ya documentaba el ci.yml retirado).
+                sh 'npx prisma generate'
+
+                // Postgres/Redis efímeros de test, vía docker.sock
+                // (Jenkins ya lo monta) -- mismo patrón que el ci.yml
+                // retirado (GitHub Actions), MÁS el override
+                // docker-compose.ci.yml (ver ese archivo para el hallazgo
+                // real completo: "localhost:<puerto publicado>" no es
+                // alcanzable desde el contenedor de Jenkins -- hay que
+                // hablarle a los contenedores por nombre, vía la red
+                // "edge"). COMPOSE_PROJECT_NAME distinto de "mail-core-mc"
+                // (el que usa dev local) -- evita chocar con un dev local
+                // corriendo en paralelo en la misma VM/Mac; nombres de
+                // contenedor resultantes: mail-core-mc-ci-postgres-1 /
+                // mail-core-mc-ci-redis-1 (determinístico, ver
+                // corePipeline.groovy para el mismo criterio de nombrado).
+                withEnv(['COMPOSE_PROJECT_NAME=mail-core-mc-ci']) {
+                    sh 'docker compose -f compose.yaml -f docker-compose.ci.yml up -d'
+                    try {
+                        // docker compose up -d retorna en cuanto el
+                        // contenedor arranca, no cuando Postgres ya
+                        // acepta conexiones -- mismo hallazgo real que ya
+                        // documentaba el ci.yml retirado.
+                        sh '''
+                            for i in $(seq 1 30); do
+                                docker compose exec -T postgres pg_isready -U mail_core_mc && exit 0
+                                sleep 1
+                            done
+                            echo "Postgres no respondio a tiempo" >&2
+                            exit 1
+                        '''
+                        withEnv([
+                            'DATABASE_URL=postgresql://mail_core_mc:mail_core_mc_dev@mail-core-mc-ci-postgres-1:5432/mail_core_mc?schema=public',
+                            'REDIS_URL=redis://mail-core-mc-ci-redis-1:6379'
+                        ]) {
+                            withSonarQubeEnv('sonarqube-vm') {
+                                sh 'npx prisma migrate deploy'
+                                sh 'npm run build'
+                                sh 'npm run test:cov'
+                                sh 'sonar-scanner'
+                            }
+                        }
+                    } finally {
+                        sh 'docker compose -f compose.yaml -f docker-compose.ci.yml down'
+                    }
+                }
+            }
+        }
+    }
 )
